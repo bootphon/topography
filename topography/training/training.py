@@ -3,11 +3,10 @@ from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
+from topography.training.writer import Writer
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
-from topography.training.writer import Writer
 
 
 def accuracy(output, labels):
@@ -26,7 +25,7 @@ def train(
 ) -> None:
     model.train()
     writer = Writer('Train', save_dir, epoch,
-                    metrics=['acc', ':.2f', accuracy])
+                    metrics=[('acc', ':.2f', accuracy)])
     end = time.time()
 
     with tqdm(total=len(dataloader), desc=f'Train, epoch {epoch}') as pbar:
@@ -71,7 +70,7 @@ def test(
 ) -> None:
     model.eval()
     writer = Writer(mode, save_dir, epoch,
-                    metrics=['acc', ':.2f', accuracy])
+                    metrics=[('acc', ':.2f', accuracy)])
     end = time.time()
 
     with torch.no_grad():
