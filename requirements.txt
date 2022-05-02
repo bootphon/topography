@@ -1,4 +1,6 @@
 pytorch
+torchvision
+torchaudio
 numpy
 scipy
 matplotlib
@@ -6,3 +8,4 @@ pandas
 ipykernel
 tqdm
 autopep8
+scikit-learn
