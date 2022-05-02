@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 import torch
-
 from topography.utils import AverageMeter, get_logger
 
 Metric = namedtuple('Metric', ['meter', 'compute'])
@@ -22,7 +21,7 @@ class Writer:
         self.logs = self.root.joinpath('logs')
         self.models = self.root.joinpath('models')
 
-        self.root.mkdir(exist_ok=True)
+        self.root.mkdir(parents=True, exist_ok=True)
         self.logs.mkdir(exist_ok=True)
         self.models.mkdir(exist_ok=True)
 
