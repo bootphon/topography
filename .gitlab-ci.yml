@@ -5,13 +5,19 @@ isort:
   stage: linting
   script:
     - isort . --check-only
+  tags:
+    - oberon
 
 black:
   stage: linting
   script:
     - black --check .
+  tags:
+    - oberon
 
 pylint:
   stage: linting
   script:
     - find . -type f -name "*.py" | xargs pylint
+  tags:
+    - oberon
