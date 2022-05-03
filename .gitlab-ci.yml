@@ -10,7 +10,9 @@ build-linux:
   stage: build
   script:
     - module load anaconda/3
-    - conda info --envs
+    - conda env update -n topography-ci -f environment.yml
+    - conda activate topography-ci
+    - pip install .
 
 isort:
   stage: linting
