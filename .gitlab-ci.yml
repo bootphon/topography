@@ -1,1 +1,17 @@
+stages:
+  - linting
+
 isort:
+  stage: linting
+  script:
+    - isort . --check-only
+
+black:
+  stage: linting
+  script:
+    - black --check .
+
+pylint:
+  stage: linting
+  script:
+    - find . -type f -name "*.py" | xargs pylint
