@@ -11,7 +11,7 @@ build-linux:
   script:
     - module load anaconda/3
     - conda activate topo
-    - pip install .
+    - conda info --envs
 
 isort:
   stage: linting
