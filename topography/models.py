@@ -25,11 +25,10 @@ def resnet(out_features: int = 1000, pretrained: bool = True,
     Raises
     ------
     ValueError
-        If num_layers is an unknown size, i.e. it is not in
-        (18, 34, 50, 101, 152).
+        If num_layers is unknown, i.e. it is not in (18, 34, 50, 101, 152).
     """
     if num_layers not in [18, 34, 50, 101, 152]:
-        raise ValueError('Invalid resnet model.')
+        raise ValueError(f'Invalid number of layers for ResNet: {num_layers}.')
     model = getattr(models, f'resnet{num_layers}')(pretrained=pretrained)
     if out_features != model.fc.out_features:
         model.fc = nn.Linear(
