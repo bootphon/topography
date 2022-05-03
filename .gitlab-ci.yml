@@ -10,7 +10,6 @@ build-linux:
   stage: build
   script:
     - module load anaconda/3
-    - conda activate topo
     - conda info --envs
 
 isort:
