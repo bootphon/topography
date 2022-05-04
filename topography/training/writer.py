@@ -63,13 +63,13 @@ class Writer:
 
     def log(self, batch_idx: int) -> None:
         message = f'epoch {self._epochs[self._mode]}, batch {batch_idx}, '
-        meters = self._meters[self._mode][self._epochs[self._mode]]
-        message += ', '.join([str(m) for m in meters.values()])
+        meters = self._meters[self._mode][self._epochs[self._mode]].values()
+        message += ', '.join([str(meter) for meter in meters])
         self._loggers[self._mode].debug(message)
 
     def postfix(self) -> str:
         meters = self._meters[self._mode][self._epochs[self._mode]].values()
-        return ', '.join([meter.summary() for meter in meters])
+        return ', '.join([str(meter) for meter in meters])
 
     def summary(self) -> str:
         meters = self._meters[self._mode][self._epochs[self._mode]].values()
@@ -79,7 +79,8 @@ class Writer:
                 meter.avg,
                 self._epochs[self._mode]
             )
-        out = self.desc() + ', ' + self.postfix()
+        out = self.desc() + ', '
+        out += ', '.join([meter.summary() for meter in meters])
         self._summary_logger.info(out)
         return out
 
