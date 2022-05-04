@@ -1,2 +1,2 @@
-from topography.utils.data import random_split
-from topography.utils.logger import AverageMeter, get_logger
+from topography.utils.logger import get_logger
+from topography.utils.meter import AverageMeter
