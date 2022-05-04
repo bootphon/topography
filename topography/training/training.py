@@ -36,7 +36,7 @@ def train(
     optimizer: Optimizer,
     criterion: Callable,
     device: torch.device,
-    writer: Writer,
+    writer: Writer
 ) -> None:
     """Training loop.
 
@@ -56,7 +56,7 @@ def train(
         Writing utility.
     """
     model.train()
-    writer.mode = 'train'
+    writer.set('train', ['loss', 'acc', 'batch-time', 'load-time'])
     end = time.time()
 
     with tqdm(total=len(dataloader), desc=writer.desc()) as pbar:
@@ -85,9 +85,6 @@ def train(
             pbar.set_postfix_str(writer.postfix())
             pbar.update()
             writer.log(batch_idx)
-
-            if batch_idx > 3:
-                break
         writer.summary()
 
 
@@ -117,22 +114,15 @@ def evaluate(
         Evaluation mode ('test' or 'val'), by default 'test'.
     """
     model.eval()
-    writer.mode = mode
-    end = time.time()
+    writer.set(mode, ['loss', 'acc'])
 
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(dataloader):
-            writer['load-time'].update(time.time() - end)
             data, target = data.to(device), target.to(device)
             output = model(data)
             loss = criterion(output, target).item()
             acc = accuracy(output, target)
-
             writer['loss'].update(loss, data.size(0))
             writer['acc'].update(acc, data.size(0))
-            writer['batch-time'].update(time.time() - end)
-            end = time.time()
             writer.log(batch_idx)
-            if batch_idx > 3:
-                break
         print(writer.summary())

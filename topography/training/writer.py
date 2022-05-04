@@ -1,97 +1,87 @@
-from collections import namedtuple
+import socket
+from collections import OrderedDict
+from datetime import datetime
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import List
 
 import torch
+import torch.nn as nn
 from topography.utils import AverageMeter, get_logger
-
-Metric = namedtuple('Metric', ['meter', 'compute'])
+from torch.optim import Optimizer
+from torch.utils.tensorboard import SummaryWriter
 
 
 class Writer:
-    def __init__(self,
-                 mode: str,
-                 root: str,
-                 epoch: int,
-                 metrics: Optional[List[Tuple[str, str, Callable]]] = None,
-                 ) -> None:
-        self.root = Path(root)
-        self.epoch = epoch
-
-        self.logs = self.root.joinpath('logs')
-        self.models = self.root.joinpath('models')
+    def __init__(self, log_dir: str, fmt: str = ':.3f') -> None:
+        time = datetime.now().strftime('%b%d_%H-%M-%S')
+        self.root = Path(log_dir).joinpath(f'{time}_{socket.gethostname()}')
+        self.fmt = fmt
+        self._tensorboard_writer = SummaryWriter(
+            self.root.joinpath('tensorboard'))
+        self._models = self.root.joinpath('models')
 
         self.root.mkdir(parents=True, exist_ok=True)
-        self.logs.mkdir(exist_ok=True)
-        self.models.mkdir(exist_ok=True)
+        self._models.mkdir(exist_ok=True)
+        self._summary_logger = get_logger(
+            'summary', self.root.joinpath('summary.log'))
 
-        if epoch is not None:
-            self.logger = get_logger(
-                mode+f', epoch {epoch}',
-                self.logs.joinpath(f'{mode.lower()}-{epoch:03d}.log'))
+        self._meters = {}
+        self._loggers = {}
+        self._epochs = {}
+
+    def __getitem__(self, metric: str) -> AverageMeter:
+        return self._meters[self._mode][self._epochs[self._mode]][metric]
+
+    def set(self, mode: str, metrics: List[str]) -> None:
+        self._mode = mode
+        if mode not in self._meters:
+            self._meters[mode] = OrderedDict()
+            self._loggers[mode] = get_logger(
+                mode, self.root.joinpath(f'{mode}.log'))
+            self._epochs[mode] = 1
         else:
-            self.logger = get_logger(
-                mode, self.logs.joinpath(f'{mode.lower()}.log'))
-        self.summary_logger = get_logger(
-            'Summary', self.root.joinpath('summary.log'))
+            self._epochs[mode] += 1
+        self._meters[mode][self._epochs[mode]] = OrderedDict(
+            [(m, AverageMeter(m, self.fmt)) for m in metrics])
 
-        self._batch_time = AverageMeter('time', ':.3f')
-        self._data_time = AverageMeter('data', ':.3f')
-        self._losses = AverageMeter('loss', ':.3e')
-        self._metrics = []
-        if metrics is not None:
-            self._metrics = [Metric(AverageMeter(m[0], m[1]), m[2])
-                             for m in metrics]
+    def desc(self) -> str:
+        return f'{self._mode}, epoch {self._epochs[self._mode]}'
 
-    def save(self, model, optimizer):
-        torch.save(model.state_dict(), self.models.joinpath(
-                   f"{self.epoch:03d}.model"))
-        torch.save(optimizer.state_dict(), self.models.joinpath(
-                   f"{self.epoch:03d}.optim"))
+    def save(self, model: nn.Module, optimizer: Optimizer, mode: str,
+             metric: str, maximize: bool = True) -> None:
+        scores_per_epoch = [m[metric] for m in self._meters[mode].values()]
+        last_score = scores_per_epoch[-1]
+        if maximize:
+            cond = all([last_score >= score for score in scores_per_epoch])
+        else:
+            cond = all([last_score <= score for score in scores_per_epoch])
+        if cond:
+            torch.save(model.state_dict(), self._models.joinpath(
+                f'{self._epochs[mode]:04d}.model'))
+            torch.save(optimizer.state_dict(), self._models.joinpath(
+                f'{self._epochs[mode]:04d}.optim'))
 
-    def end(self, t):
-        self.logger.info(f'Finished epoch in {t}s.')
-        metrics = {
-            'batch_time': self._batch_time,
-            'losses': self._losses,
-            'data_time': self._data_time
-        }
-        for m in self._metrics:
-            metrics[m.meter.name] = m.meter
-        metrics['epoch_time'] = t
-        return metrics
+    def log(self, batch_idx: int) -> None:
+        message = f'epoch {self._epochs[self._mode]}, batch {batch_idx}, '
+        meters = self._meters[self._mode][self._epochs[self._mode]]
+        message += ', '.join([str(m) for m in meters.values()])
+        self._loggers[self._mode].debug(message)
 
-    def update_data_time(self, t):
-        self._data_time.update(t)
+    def postfix(self) -> str:
+        meters = self._meters[self._mode][self._epochs[self._mode]].values()
+        return ', '.join([meter.summary() for meter in meters])
 
-    def update_batch_time(self, t):
-        self._batch_time.update(t)
-
-    def update_losses(self, loss, batch_size):
-        self._losses.update(loss, batch_size)
-
-    def update_metrics(self, output, target, batch_size):
-        for m in self._metrics:
-            m.meter.update(m.compute(output, target), batch_size)
-
-    def log(self, batch_idx: int):
-        message = f'Batch {batch_idx}, {self._data_time}, '\
-            f'{self._batch_time}, '\
-            f'{self._losses}'
-        for m in self._metrics:
-            message += f', {m.meter}'
-        self.logger.debug(message)
-
-    def current(self, head: str = ''):
-        meters = [self._losses]
-        for m in self._metrics:
-            meters.append(m.meter)
-        return head+', '.join([str(meter) for meter in meters])
-
-    def summary(self, head: str = ''):
-        meters = [self._losses]
-        for m in self._metrics:
-            meters.append(m.meter)
-        out = head+', '.join([meter.summary() for meter in meters])
-        self.summary_logger.info(out)
+    def summary(self) -> str:
+        meters = self._meters[self._mode][self._epochs[self._mode]].values()
+        for meter in meters:
+            self._tensorboard_writer.add_scalar(
+                f'{self._mode}/{meter.name}',
+                meter.avg,
+                self._epochs[self._mode]
+            )
+        out = self.desc() + ', ' + self.postfix()
+        self._summary_logger.info(out)
         return out
+
+    def close(self) -> None:
+        self._tensorboard_writer.close()
