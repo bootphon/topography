@@ -7,7 +7,6 @@ from typing import List
 import torch
 import torch.nn as nn
 from topography.utils import AverageMeter, get_logger
-from torch.optim import Optimizer
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -47,8 +46,8 @@ class Writer:
     def desc(self) -> str:
         return f'{self._mode}, epoch {self._epochs[self._mode]}'
 
-    def save(self, model: nn.Module, optimizer: Optimizer, mode: str,
-             metric: str, maximize: bool = True) -> None:
+    def save(self, mode: str, metric: str, maximize: bool = True, **kwargs
+             ) -> None:
         scores_per_epoch = [m[metric].avg for m in self._meters[mode].values()]
         last_score = scores_per_epoch[-1]
         if maximize:
@@ -56,10 +55,9 @@ class Writer:
         else:
             cond = all([last_score <= score for score in scores_per_epoch])
         if cond:
-            torch.save(model.state_dict(), self._models.joinpath(
-                f'{self._epochs[mode]:04d}.model'))
-            torch.save(optimizer.state_dict(), self._models.joinpath(
-                f'{self._epochs[mode]:04d}.optim'))
+            for k, v in kwargs.items():
+                torch.save(v.state_dict(), self._models.joinpath(
+                    f'{self._epochs[mode]:04d}.{k}'))
 
     def log(self, batch_idx: int) -> None:
         message = f'epoch {self._epochs[self._mode]}, batch {batch_idx}, '
