@@ -1,0 +1,20 @@
+name: topography
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - python>=3.8
+  - pytorch
+  - torchaudio
+  - torchvision
+  - numpy
+  - matplotlib
+  - scipy
+  - pandas
+  - tqdm
+  - scikit-learn
+  - ipykernel
+  - autopep8
+  - isort
+  - black
+  - pylint

@@ -1,5 +1,7 @@
+"""Provides training and evaluation loops.
+"""
 import time
-from typing import Callable, Optional
+from typing import Callable
 
 import torch
 import torch.nn as nn
@@ -9,7 +11,21 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
 
-def accuracy(output, labels):
+def accuracy(output: torch.Tensor, labels: torch.Tensor) -> float:
+    """Compute batch accuracy.
+
+    Parameters
+    ----------
+    output : torch.Tensor
+        Raw outputs of the network.
+    labels : torch.Tensor
+        Target labels.
+
+    Returns
+    -------
+    float
+        Accuracy on the given batch.
+    """
     _, predicted = torch.max(output.data, 1)
     return float((predicted == labels).sum()) / float(output.size(0))
 
@@ -20,18 +36,33 @@ def train(
     optimizer: Optimizer,
     criterion: Callable,
     device: torch.device,
-    save_dir: str,
-    epoch: int,
+    writer: Writer,
 ) -> None:
+    """Training loop.
+
+    Parameters
+    ----------
+    model : nn.Module
+        Model to train.
+    dataloader : DataLoader
+        Dataloader.
+    optimizer : Optimizer
+        Optimizer.
+    criterion : Callable
+        Loss function.
+    device : torch.device
+        Device, either CPU or CUDA GPU.
+    writer : Writer
+        Writing utility.
+    """
     model.train()
-    writer = Writer('Train', save_dir, epoch,
-                    metrics=[('acc', ':.2f', accuracy)])
+    writer.mode = 'train'
     end = time.time()
 
-    with tqdm(total=len(dataloader), desc=f'Train, epoch {epoch}') as pbar:
+    with tqdm(total=len(dataloader), desc=writer.desc()) as pbar:
         for batch_idx, (data, target) in enumerate(dataloader):
             # Measure data loading time
-            writer.update_data_time(time.time() - end)
+            writer['load-time'].update(time.time() - end)
             data, target = data.to(device), target.to(device)
 
             # Compute output
@@ -44,50 +75,64 @@ def train(
             optimizer.step()
 
             # Measure accuracy and record loss
-            writer.update_losses(loss.item(), data.size(0))
-            writer.update_metrics(output, target, data.size(0))
+            writer['loss'].update(loss.item(), data.size(0))
+            writer['acc'].update(accuracy(output, target), data.size(0))
 
             # Measure elapsed time
-            writer.update_batch_time(time.time() - end)
+            writer['batch-time'].update(time.time() - end)
             end = time.time()
 
-            pbar.set_postfix_str(writer.current())
+            pbar.set_postfix_str(writer.postfix())
             pbar.update()
             writer.log(batch_idx)
-        writer.summary(f'Train, epoch {epoch}: ')
-    writer.save(model, optimizer)
-    return writer.end(time.time() - end)
+
+            if batch_idx > 3:
+                break
+        writer.summary()
 
 
-def test(
+def evaluate(
     model: nn.Module,
     dataloader: DataLoader,
     criterion: Callable,
     device: torch.device,
-    save_dir: str,
-    mode: str,
-    epoch: Optional[int] = None
+    writer: Writer,
+    mode: str = 'test'
 ) -> None:
+    """Testing or validation loop.
+
+    Parameters
+    ----------
+    model : nn.Module
+        Model to evaluate.
+    dataloader : DataLoader
+        Dataloader.
+    criterion : Callable
+        Loss function.
+    device : torch.device
+        Device, either CPU or CUDA GPU.
+    writer : Writer
+        Writing utility.
+    mode : str
+        Evaluation mode ('test' or 'val'), by default 'test'.
+    """
     model.eval()
-    writer = Writer(mode, save_dir, epoch,
-                    metrics=[('acc', ':.2f', accuracy)])
+    writer.mode = mode
     end = time.time()
 
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(dataloader):
+            writer['load-time'].update(time.time() - end)
             data, target = data.to(device), target.to(device)
             output = model(data)
             loss = criterion(output, target).item()
+            acc = accuracy(output, target)
 
-            writer.update_losses(loss, data.size(0))
-            writer.update_metrics(output, target, data.size(0))
-            writer.update_batch_time(time.time() - end)
+            writer['loss'].update(loss, data.size(0))
+            writer['acc'].update(acc, data.size(0))
+            writer['batch-time'].update(time.time() - end)
             end = time.time()
             writer.log(batch_idx)
-
-        if epoch is not None:
-            head = f'{mode}, epoch {epoch}: '
-        else:
-            head = f'{mode}: '
-        print(writer.summary(head))
-    return writer.end(time.time() - end)
+            if batch_idx > 3:
+                break
+        print(writer.summary())
