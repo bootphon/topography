@@ -49,7 +49,7 @@ class Writer:
 
     def save(self, model: nn.Module, optimizer: Optimizer, mode: str,
              metric: str, maximize: bool = True) -> None:
-        scores_per_epoch = [m[metric] for m in self._meters[mode].values()]
+        scores_per_epoch = [m[metric].avg for m in self._meters[mode].values()]
         last_score = scores_per_epoch[-1]
         if maximize:
             cond = all([last_score >= score for score in scores_per_epoch])
