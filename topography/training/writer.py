@@ -1,6 +1,7 @@
 """Writing utility. Handle logging, writing to TensorBoard and saving
 checkpoints.
 """
+import json
 import socket
 from collections import OrderedDict
 from datetime import datetime
@@ -147,6 +148,11 @@ class Writer:
         meters = self._meters[self._mode][self._epochs[self._mode]].values()
         message += ', '.join([str(meter) for meter in meters])
         self._loggers[self._mode].debug(message)
+
+    def log_hparams(self, **kwargs) -> None:
+        """Log the given hyperparameters to a json file."""
+        with open(self.root.joinpath('hparams.json'), 'w') as f:
+            json.dump(kwargs, f, indent=2)
 
     def postfix(self) -> str:
         """Postfix showing the state of each tracked metric for the
