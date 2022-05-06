@@ -1,4 +1,6 @@
-# From https://github.com/PyTorchLightning/lightning-bolts/blob/1e962eb2294821f9570b9ea770022c29f02eef10/pl_bolts/optimizers/lr_scheduler.py
+"""Learning rate scheduler from PyTorch Lightning:
+https://github.com/PyTorchLightning/lightning-bolts/blob/1e962eb2294821f9570b9ea770022c29f02eef10/pl_bolts/optimizers/lr_scheduler.py
+"""
 import math
 import warnings
 from typing import List
