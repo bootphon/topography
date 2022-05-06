@@ -5,10 +5,11 @@ from typing import Callable
 
 import torch
 import torch.nn as nn
-from topography.training.writer import Writer
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+
+from topography.training.writer import Writer
 
 
 def accuracy(output: torch.Tensor, labels: torch.Tensor) -> float:

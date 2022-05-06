@@ -1,14 +1,16 @@
-import os
+"""Provides ResNet18 model. Modified version of
+https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py
+The difference in the model is in `self.conv1`: the kernel size
+is reduced from 7 to 3, the strides from 2 to 1, and the padding from
+3 to 1. It is better suited for CIFAR and follows [resnet]_ architecture.
 
-import torch
+
+References
+----------
+.. [resnet] https://arxiv.org/abs/1512.03385
+
+"""
 import torch.nn as nn
-
-__all__ = [
-    "ResNet",
-    "resnet18",
-    "resnet34",
-    "resnet50",
-]
 
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
@@ -27,7 +29,8 @@ def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
 
 def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+    return nn.Conv2d(in_planes, out_planes, kernel_size=1,
+                     stride=stride, bias=False)
 
 
 class BasicBlock(nn.Module):
@@ -53,7 +56,8 @@ class BasicBlock(nn.Module):
         if dilation > 1:
             raise NotImplementedError(
                 "Dilation > 1 not supported in BasicBlock")
-        # Both self.conv1 and self.downsample layers downsample the input when stride != 1
+        # Both self.conv1 and self.downsample layers downsample
+        # the input when stride != 1
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = norm_layer(planes)
         self.relu = nn.ReLU(inplace=True)
@@ -124,13 +128,16 @@ class ResNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0], stride=1)
         self.layer2 = self._make_layer(
-            block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0]
+            block, 128, layers[1], stride=2,
+            dilate=replace_stride_with_dilation[0]
         )
         self.layer3 = self._make_layer(
-            block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1]
+            block, 256, layers[2], stride=2,
+            dilate=replace_stride_with_dilation[1]
         )
         self.layer4 = self._make_layer(
-            block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2]
+            block, 512, layers[3], stride=2,
+            dilate=replace_stride_with_dilation[2]
         )
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
@@ -144,8 +151,10 @@ class ResNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
         # Zero-initialize the last BN in each residual branch,
-        # so that the residual branch starts with zeros, and each residual block behaves like an identity.
-        # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
+        # so that the residual branch starts with zeros, and each residual
+        # block behaves like an identity.
+        # This improves the model by 0.2~0.3% according to
+        # https://arxiv.org/abs/1706.02677
         if zero_init_residual:
             for m in self.modules():
                 if isinstance(m, BasicBlock):
@@ -210,23 +219,6 @@ class ResNet(nn.Module):
         return x
 
 
-def _resnet(arch, block, layers, pretrained, progress, device, **kwargs):
-    model = ResNet(block, layers, **kwargs)
-    if pretrained:
-        script_dir = os.path.dirname(__file__)
-        state_dict = torch.load(
-            script_dir + "/state_dicts/" + arch + ".pt", map_location=device
-        )
-        model.load_state_dict(state_dict)
-    return model
-
-
-def resnet18(pretrained=False, progress=True, device="cpu", **kwargs):
-    """Constructs a ResNet-18 model.
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-        progress (bool): If True, displays a progress bar of the download to stderr
-    """
-    return _resnet(
-        "resnet18", BasicBlock, [2, 2, 2, 2], pretrained, progress, device, **kwargs
-    )
+def resnet18(**kwargs):
+    """Constructs a ResNet-18 model."""
+    return ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
