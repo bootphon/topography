@@ -1,8 +1,23 @@
+[project]
+name = "topography"
+version = "0.01"
+authors = "Maxime Poli <mpoli.pro@gmail.com>"
+readme = "README.md"
+
 [tool.black]
 line-length = 80
 
-[tool.isort]
-profile = black
+[tool.pylint.message_control]
+disable = "R0913, R0902"
 
-[tool.pylint.messages_control]
-disable = ["import-error"]
+[tool.pylint.typecheck]
+ignored-modules = "torch"
+
+[tool.pylint.format]
+max-line-length = 80
+
+[tool.pylint.master]
+ignore = "topography/utils/externals"
+
+[tool.coverage.run]
+branch = false

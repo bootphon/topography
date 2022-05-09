@@ -15,8 +15,10 @@ from topography.utils import AverageMeter, get_logger
 
 
 class Writer:
-    def __init__(self, log_dir: str, fmt: str = ':.3f') -> None:
-        """Writer handling logging, TensorBoard and checkpoints.
+    """Writer handling logging, TensorBoard and checkpoints"""
+
+    def __init__(self, log_dir: str, fmt: str = ":.3f") -> None:
+        """Create the writer.
 
         Parameters
         ----------
@@ -36,18 +38,18 @@ class Writer:
         fmt : str, optional
             String formatter used in logging, by default ':.3f'.
         """
-        # TODO: redisign the writer: a bit convoluted that way, have to use
-        # TODO: more TensorBoard or even Wandb.
-        time = datetime.now().strftime('%b%d_%H-%M-%S')
-        self.root = Path(log_dir).joinpath(f'{time}_{socket.gethostname()}')
+        time = datetime.now().strftime("%b%d_%H-%M-%S")
+        self.root = Path(log_dir).joinpath(f"{time}_{socket.gethostname()}")
         self.fmt = fmt
-        self.tb = SummaryWriter(self.root.joinpath('tensorboard'))
-        self._checkpoints = self.root.joinpath('checkpoints')
+        self.tensorboard = SummaryWriter(self.root.joinpath("tensorboard"))
+        self._checkpoints = self.root.joinpath("checkpoints")
 
         self.root.mkdir(parents=True, exist_ok=True)
         self._checkpoints.mkdir(exist_ok=True)
         self._summary_logger = get_logger(
-            'summary', self.root.joinpath('summary.log'))
+            "summary", self.root.joinpath("summary.log")
+        )
+        self._mode = None
         self._meters = {}
         self._loggers = {}
         self._epochs = {}
@@ -85,12 +87,14 @@ class Writer:
         if mode not in self._meters:
             self._meters[mode] = OrderedDict()
             self._loggers[mode] = get_logger(
-                mode, self.root.joinpath(f'{mode}.log'))
+                mode, self.root.joinpath(f"{mode}.log")
+            )
             self._epochs[mode] = 1
         else:
             self._epochs[mode] += 1
         self._meters[mode][self._epochs[mode]] = OrderedDict(
-            [(m, AverageMeter(m, self.fmt)) for m in metrics])
+            [(m, AverageMeter(m, self.fmt)) for m in metrics]
+        )
 
     def desc(self) -> str:
         """String indicating the current mode and epoch.
@@ -101,10 +105,11 @@ class Writer:
         str
             Description of the Writer state.
         """
-        return f'{self._mode}, epoch {self._epochs[self._mode]}'
+        return f"{self._mode}, epoch {self._epochs[self._mode]}"
 
-    def save(self, mode: str, metric: str, maximize: bool = True, **kwargs
-             ) -> None:
+    def save(
+        self, mode: str, metric: str, maximize: bool = True, **kwargs
+    ) -> None:
         """Save checkpoints if for the given `mode`, the score for `metric`
         is the best at the current epoch.
 
@@ -127,13 +132,15 @@ class Writer:
         scores_per_epoch = [m[metric].avg for m in self._meters[mode].values()]
         last_score = scores_per_epoch[-1]
         if maximize:
-            cond = all([last_score >= score for score in scores_per_epoch])
+            cond = all(last_score >= score for score in scores_per_epoch)
         else:
-            cond = all([last_score <= score for score in scores_per_epoch])
+            cond = all(last_score <= score for score in scores_per_epoch)
         if cond:
-            for k, v in kwargs.items():
-                torch.save(v.state_dict(), self._checkpoints.joinpath(
-                    f'{self._epochs[mode]:04d}.{k}'))
+            for k, module in kwargs.items():
+                torch.save(
+                    module.state_dict(),
+                    self._checkpoints.joinpath(f"{self._epochs[mode]:04d}.{k}"),
+                )
 
     def log(self, batch_idx: int) -> None:
         """Log to a text file intermediate results for batch number
@@ -144,15 +151,17 @@ class Writer:
         batch_idx : int
             Batch number at the current epoch.
         """
-        message = f'epoch {self._epochs[self._mode]}, batch {batch_idx}, '
+        message = f"epoch {self._epochs[self._mode]}, batch {batch_idx}, "
         meters = self._meters[self._mode][self._epochs[self._mode]].values()
-        message += ', '.join([str(meter) for meter in meters])
+        message += ", ".join([str(meter) for meter in meters])
         self._loggers[self._mode].debug(message)
 
     def log_hparams(self, **kwargs) -> None:
         """Log the given hyperparameters to a json file."""
-        with open(self.root.joinpath('hparams.json'), 'w') as f:
-            json.dump(kwargs, f, indent=2)
+        with open(
+            self.root.joinpath("hparams.json"), "w", encoding="utf-8"
+        ) as file:
+            json.dump(kwargs, file, indent=2)
 
     def postfix(self) -> str:
         """Postfix showing the state of each tracked metric for the
@@ -165,7 +174,7 @@ class Writer:
             Postfix string. Used in tqdm progress bar.
         """
         meters = self._meters[self._mode][self._epochs[self._mode]].values()
-        return ', '.join([str(meter) for meter in meters])
+        return ", ".join([str(meter) for meter in meters])
 
     def summary(self) -> str:
         """Summary of all tracked metrics on the current epoch and mode.
@@ -178,14 +187,16 @@ class Writer:
         """
         meters = self._meters[self._mode][self._epochs[self._mode]].values()
         for meter in meters:
-            self.tb.add_scalar(f'{self._mode}/{meter.name}',
-                               meter.avg, self._epochs[self._mode])
-        out = self.desc() + ', '
-        out += ', '.join([meter.summary() for meter in meters])
+            self.tensorboard.add_scalar(
+                f"{self._mode}/{meter.name}",
+                meter.avg,
+                self._epochs[self._mode],
+            )
+        out = self.desc() + ", "
+        out += ", ".join([meter.summary() for meter in meters])
         self._summary_logger.info(out)
         return out
 
     def close(self) -> None:
-        """Close the TensorBoard writer.
-        """
-        self.tb.close()
+        """Close the TensorBoard writer."""
+        self.tensorboard.close()

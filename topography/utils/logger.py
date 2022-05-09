@@ -28,13 +28,13 @@ def get_logger(name: str, file: str) -> logging.Logger:
         ('debug', 'info', 'warning', 'error').
     """
     levels = {
-        'debug': logging.DEBUG,
-        'info': logging.INFO,
-        'warning': logging.WARNING,
-        'error': logging.ERROR
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
     }
 
-    formatter = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+    formatter = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
     handler = logging.FileHandler(file)
     handler.setFormatter(logging.Formatter(formatter))
 
@@ -44,6 +44,8 @@ def get_logger(name: str, file: str) -> logging.Logger:
     logger.setLevel(logging.DEBUG)
     try:
         logger.setLevel(levels[topography.LOG_LEVEL])
-    except BaseException:
-        raise ValueError(f'Invalid logging level "{topography.LOG_LEVEL}"')
+    except BaseException as invalid_level:
+        raise ValueError(
+            f'Invalid logging level "{topography.LOG_LEVEL}"'
+        ) from invalid_level
     return logger

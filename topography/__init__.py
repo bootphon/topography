@@ -1,1 +1,2 @@
-LOG_LEVEL: str = 'debug'
+"""Introducing topography in ConvNets."""
+LOG_LEVEL: str = "debug"
