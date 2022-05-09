@@ -49,7 +49,7 @@ flake8:
 
 test-linux:
   stage: test
-  needs: ["linting"]
+  needs: ["build-linux"]
   script:
     - module load anaconda/3
     - conda activate topography-ci
