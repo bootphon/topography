@@ -19,7 +19,7 @@ max-line-length = 80
 ignore = "topography/utils/externals"
 
 [tool.pytest.ini_options]
-addopts = "--verbose --cov=topography --cov-report=html --cov-report=term:skip-covered"
+addopts = "--verbose --cov=topography --cov-report=html --cov-report=term:skip-covered -W ignore::DeprecationWarning"
 testpaths = ["tests", "topography"]
 
 [tool.coverage.run]
