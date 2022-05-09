@@ -18,3 +18,4 @@ dependencies:
   - isort
   - black
   - pylint
+  - tensorboard

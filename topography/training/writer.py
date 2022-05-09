@@ -1,97 +1,191 @@
-from collections import namedtuple
+"""Writing utility. Handle logging, writing to TensorBoard and saving
+checkpoints.
+"""
+import json
+import socket
+from collections import OrderedDict
+from datetime import datetime
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import List
 
 import torch
-from topography.utils import AverageMeter, get_logger
+from torch.utils.tensorboard import SummaryWriter
 
-Metric = namedtuple('Metric', ['meter', 'compute'])
+from topography.utils import AverageMeter, get_logger
 
 
 class Writer:
-    def __init__(self,
-                 mode: str,
-                 root: str,
-                 epoch: int,
-                 metrics: Optional[List[Tuple[str, str, Callable]]] = None,
-                 ) -> None:
-        self.root = Path(root)
-        self.epoch = epoch
+    def __init__(self, log_dir: str, fmt: str = ':.3f') -> None:
+        """Writer handling logging, TensorBoard and checkpoints.
 
-        self.logs = self.root.joinpath('logs')
-        self.models = self.root.joinpath('models')
+        Parameters
+        ----------
+        log_dir : str
+            Logging directory. It will be structured in the following way:
+
+            log_dir/
+            |--checkpoints/
+            |
+            |--tensorboard/
+            |
+            |--summary.log
+            |--train.log
+            |--val.log
+            |--test.log
+
+        fmt : str, optional
+            String formatter used in logging, by default ':.3f'.
+        """
+        # TODO: redisign the writer: a bit convoluted that way, have to use
+        # TODO: more TensorBoard or even Wandb.
+        time = datetime.now().strftime('%b%d_%H-%M-%S')
+        self.root = Path(log_dir).joinpath(f'{time}_{socket.gethostname()}')
+        self.fmt = fmt
+        self.tb = SummaryWriter(self.root.joinpath('tensorboard'))
+        self._checkpoints = self.root.joinpath('checkpoints')
 
         self.root.mkdir(parents=True, exist_ok=True)
-        self.logs.mkdir(exist_ok=True)
-        self.models.mkdir(exist_ok=True)
+        self._checkpoints.mkdir(exist_ok=True)
+        self._summary_logger = get_logger(
+            'summary', self.root.joinpath('summary.log'))
+        self._meters = {}
+        self._loggers = {}
+        self._epochs = {}
 
-        if epoch is not None:
-            self.logger = get_logger(
-                mode+f', epoch {epoch}',
-                self.logs.joinpath(f'{mode.lower()}-{epoch:03d}.log'))
+    def __getitem__(self, metric: str) -> AverageMeter:
+        """Return the meter associated for the given `metric`
+        for the current epoch and the current mode.
+
+        Parameters
+        ----------
+        metric : str
+            Metric to get. Has to have been given by `set`
+            for this current epoch and mode.
+
+        Returns
+        -------
+        AverageMeter
+            Associated meter.
+        """
+        return self._meters[self._mode][self._epochs[self._mode]][metric]
+
+    def set(self, mode: str, metrics: List[str]) -> None:
+        """Start a new epoch with the given `mode`, will track
+        the given `metrics`. If the `mode` has not been seen yet,
+        it will be the first epoch.
+
+        Parameters
+        ----------
+        mode : str
+            Current mode, for example "train", "val", or "test".
+        metrics : List[str]
+            List of metrics to follow for this mode and the current epoch.
+        """
+        self._mode = mode
+        if mode not in self._meters:
+            self._meters[mode] = OrderedDict()
+            self._loggers[mode] = get_logger(
+                mode, self.root.joinpath(f'{mode}.log'))
+            self._epochs[mode] = 1
         else:
-            self.logger = get_logger(
-                mode, self.logs.joinpath(f'{mode.lower()}.log'))
-        self.summary_logger = get_logger(
-            'Summary', self.root.joinpath('summary.log'))
+            self._epochs[mode] += 1
+        self._meters[mode][self._epochs[mode]] = OrderedDict(
+            [(m, AverageMeter(m, self.fmt)) for m in metrics])
 
-        self._batch_time = AverageMeter('time', ':.3f')
-        self._data_time = AverageMeter('data', ':.3f')
-        self._losses = AverageMeter('loss', ':.3e')
-        self._metrics = []
-        if metrics is not None:
-            self._metrics = [Metric(AverageMeter(m[0], m[1]), m[2])
-                             for m in metrics]
+    def desc(self) -> str:
+        """String indicating the current mode and epoch.
+        Used in tqdm progress bar?
 
-    def save(self, model, optimizer):
-        torch.save(model.state_dict(), self.models.joinpath(
-                   f"{self.epoch:03d}.model"))
-        torch.save(optimizer.state_dict(), self.models.joinpath(
-                   f"{self.epoch:03d}.optim"))
+        Returns
+        -------
+        str
+            Description of the Writer state.
+        """
+        return f'{self._mode}, epoch {self._epochs[self._mode]}'
 
-    def end(self, t):
-        self.logger.info(f'Finished epoch in {t}s.')
-        metrics = {
-            'batch_time': self._batch_time,
-            'losses': self._losses,
-            'data_time': self._data_time
-        }
-        for m in self._metrics:
-            metrics[m.meter.name] = m.meter
-        metrics['epoch_time'] = t
-        return metrics
+    def save(self, mode: str, metric: str, maximize: bool = True, **kwargs
+             ) -> None:
+        """Save checkpoints if for the given `mode`, the score for `metric`
+        is the best at the current epoch.
 
-    def update_data_time(self, t):
-        self._data_time.update(t)
+        Parameters
+        ----------
+        mode : str
+            Mode in which the scores will be compared across epochs.
+            Most likely will be "val" and not "train".
+        metric : str
+            Metric that will decide if we save the checkpoints or not.
+            Most likely will be "acc".
+        maximize : bool, optional
+            Whether we look to maximize or minimize this metric, by default
+            True. Most likely will be True if `metric` is "acc", and
+            False if `metric` is "loss".
+        **kwargs:
+            Torch objects that we which to save. Must implement the
+            `state_dict` method (ie models, optimizers, schedulers).
+        """
+        scores_per_epoch = [m[metric].avg for m in self._meters[mode].values()]
+        last_score = scores_per_epoch[-1]
+        if maximize:
+            cond = all([last_score >= score for score in scores_per_epoch])
+        else:
+            cond = all([last_score <= score for score in scores_per_epoch])
+        if cond:
+            for k, v in kwargs.items():
+                torch.save(v.state_dict(), self._checkpoints.joinpath(
+                    f'{self._epochs[mode]:04d}.{k}'))
 
-    def update_batch_time(self, t):
-        self._batch_time.update(t)
+    def log(self, batch_idx: int) -> None:
+        """Log to a text file intermediate results for batch number
+        `batch_idx`.
 
-    def update_losses(self, loss, batch_size):
-        self._losses.update(loss, batch_size)
+        Parameters
+        ----------
+        batch_idx : int
+            Batch number at the current epoch.
+        """
+        message = f'epoch {self._epochs[self._mode]}, batch {batch_idx}, '
+        meters = self._meters[self._mode][self._epochs[self._mode]].values()
+        message += ', '.join([str(meter) for meter in meters])
+        self._loggers[self._mode].debug(message)
 
-    def update_metrics(self, output, target, batch_size):
-        for m in self._metrics:
-            m.meter.update(m.compute(output, target), batch_size)
+    def log_hparams(self, **kwargs) -> None:
+        """Log the given hyperparameters to a json file."""
+        with open(self.root.joinpath('hparams.json'), 'w') as f:
+            json.dump(kwargs, f, indent=2)
 
-    def log(self, batch_idx: int):
-        message = f'Batch {batch_idx}, {self._data_time}, '\
-            f'{self._batch_time}, '\
-            f'{self._losses}'
-        for m in self._metrics:
-            message += f', {m.meter}'
-        self.logger.debug(message)
+    def postfix(self) -> str:
+        """Postfix showing the state of each tracked metric for the
+        current mode and epoch. Plain scores are those of the last batch while
+        scores in parenthesis are averages on the current epoch.
 
-    def current(self, head: str = ''):
-        meters = [self._losses]
-        for m in self._metrics:
-            meters.append(m.meter)
-        return head+', '.join([str(meter) for meter in meters])
+        Returns
+        -------
+        str
+            Postfix string. Used in tqdm progress bar.
+        """
+        meters = self._meters[self._mode][self._epochs[self._mode]].values()
+        return ', '.join([str(meter) for meter in meters])
 
-    def summary(self, head: str = ''):
-        meters = [self._losses]
-        for m in self._metrics:
-            meters.append(m.meter)
-        out = head+', '.join([meter.summary() for meter in meters])
-        self.summary_logger.info(out)
+    def summary(self) -> str:
+        """Summary of all tracked metrics on the current epoch and mode.
+        Also log epoch results to TensorBoard.
+
+        Returns
+        -------
+        str
+            Summary string.
+        """
+        meters = self._meters[self._mode][self._epochs[self._mode]].values()
+        for meter in meters:
+            self.tb.add_scalar(f'{self._mode}/{meter.name}',
+                               meter.avg, self._epochs[self._mode])
+        out = self.desc() + ', '
+        out += ', '.join([meter.summary() for meter in meters])
+        self._summary_logger.info(out)
         return out
+
+    def close(self) -> None:
+        """Close the TensorBoard writer.
+        """
+        self.tb.close()
