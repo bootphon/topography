@@ -24,5 +24,4 @@ testpaths = ["tests", "topography"]
 
 [tool.coverage.run]
 branch = false
-skip_empty = true
 omit = ["topography/utils/externals/*"]
