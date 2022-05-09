@@ -53,6 +53,4 @@ test-linux:
   script:
     - module load anaconda/3
     - conda activate topography-ci
-    - conda list | grep topography
-    - python -c "import topography; from topography.utils import get_logger; from topography.models import resnet18"
     - pytest
