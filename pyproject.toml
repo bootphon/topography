@@ -1,7 +1,7 @@
 [project]
 name = "topography"
 version = "0.01"
-authors = "Maxime Poli <mpoli.pro@gmail.com>"
+authors = ["Maxime Poli <mpoli.pro@gmail.com>"]
 readme = "README.md"
 
 [build-system]
