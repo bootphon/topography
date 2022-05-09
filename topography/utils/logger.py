@@ -5,7 +5,7 @@ import logging
 import topography
 
 
-def get_logger(name: str, file: str) -> logging.Logger:
+def get_logger(name: str, file: str, level: str = None) -> logging.Logger:
     """Create a logger with name `name` and that will output to
     `file`, with logging level `topography.LOG_LEVEL`.
 
@@ -15,6 +15,9 @@ def get_logger(name: str, file: str) -> logging.Logger:
         Logger name.
     file : str
         Logging file.
+    level : str, optional
+        Logging level. If not provided, uses the global variable
+        `topography.LOG_LEVEL` instead.
 
     Returns
     -------
@@ -24,9 +27,10 @@ def get_logger(name: str, file: str) -> logging.Logger:
     Raises
     ------
     ValueError
-        If the global variable `topography.LOG_LEVEL` is not in
-        ('debug', 'info', 'warning', 'error').
+        If the logging level is not in ('debug', 'info', 'warning', 'error').
     """
+    if level is None:
+        level = topography.LOG_LEVEL
     levels = {
         "debug": logging.DEBUG,
         "info": logging.INFO,
@@ -43,9 +47,7 @@ def get_logger(name: str, file: str) -> logging.Logger:
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
     try:
-        logger.setLevel(levels[topography.LOG_LEVEL])
+        logger.setLevel(levels[level])
     except BaseException as invalid_level:
-        raise ValueError(
-            f'Invalid logging level "{topography.LOG_LEVEL}"'
-        ) from invalid_level
+        raise ValueError(f'Invalid logging level "{level}"') from invalid_level
     return logger

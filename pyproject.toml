@@ -4,6 +4,10 @@ version = "0.01"
 authors = "Maxime Poli <mpoli.pro@gmail.com>"
 readme = "README.md"
 
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
 [tool.black]
 line-length = 80
 
@@ -19,5 +23,11 @@ max-line-length = 80
 [tool.pylint.master]
 ignore = "topography/utils/externals"
 
+[tool.pytest.ini_options]
+addopts = "--verbose --cov=topography --cov-report=html --cov-report=term:skip-covered"
+testpaths = ["tests", "topography"]
+
 [tool.coverage.run]
 branch = false
+skip_empty = true
+omit = ["topography/utils/externals/*"]

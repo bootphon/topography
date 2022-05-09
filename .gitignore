@@ -5,3 +5,5 @@
 **/.ipynb_checkpoints
 notebooks/**/
 .coverage
+.pytest_cache
+htmlcov

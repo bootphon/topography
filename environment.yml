@@ -19,3 +19,7 @@ dependencies:
   - black
   - pylint
   - tensorboard
+  - pytest
+  - pytest-cov
+  - flake8
+  - cpuonly

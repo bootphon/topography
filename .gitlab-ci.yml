@@ -1,6 +1,7 @@
 stages:
   - build
   - linting
+  - test
 
 default:
   tags:
@@ -13,22 +14,43 @@ build-linux:
     - conda env update -n topography-ci -f environment.yml
     - conda activate topography-ci
     - pip install .
-    # - conda info --envs
 
 isort:
   stage: linting
   needs: ["build-linux"]
   script:
+    - module load anaconda/3
+    - conda activate topography-ci
     - isort . --check-only
 
 black:
   stage: linting
   needs: ["build-linux"]
   script:
+    - module load anaconda/3
+    - conda activate topography-ci
     - black --check .
 
 pylint:
   stage: linting
   needs: ["build-linux"]
   script:
+    - module load anaconda/3
+    - conda activate topography-ci
     - pylint topograhy
+
+flake8:
+  stage: linting
+  needs: ["build-linux"]
+  script:
+    - module load anaconda/3
+    - conda activate topography-ci
+    - flake8 topograhy
+
+test-linux:
+  stage: test
+  needs: ["linting"]
+  script:
+    - module load anaconda/3
+    - conda activate topography-ci
+    - pytest
