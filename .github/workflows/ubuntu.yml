@@ -33,31 +33,24 @@ jobs:
       - name: "📦 install package"
         run: pip install .
 
-      - name: "check"
-        run: |
-          pwd
-          ls
-          conda info
-          conda list
-
       - name: "🛠️ run isort"
         run: |
-          conda activate topography
+          which isort
           isort . --check-only
 
       - name: "🛠️ run black"
         run: |
-          conda activate topography
+          which black
           black --check .
 
       - name: "🛠️ run flake8"
         run: |
-          conda activate topography
-          flake8
+          which flake8
+          flake8 --exit-zero
 
       - name: "🛠️ run pylint"
         run: |
-          conda activate topography
+          which pylint
           pylint topography
 
   test:
@@ -90,5 +83,5 @@ jobs:
 
       - name: "💻 pytest"
         run: |
-          conda activate topography
+          which pytest
           pytest
