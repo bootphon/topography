@@ -1,9 +1,5 @@
 name: Ubuntu
-on:
-  push:
-    branches:
-      - develop
-  pull_request:
+on: push
 
 jobs:
   lint:
