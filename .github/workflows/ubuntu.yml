@@ -4,19 +4,35 @@ on: push
 jobs:
   lint:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
       - name: "☁️ checkout repository"
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
-      - name: "🔧 setup Python"
-        uses: actions/setup-python@v3
+      - name: "🗃️ cache conda"
+        uses: actions/cache@v3
+        env:
+          # Increase this value to reset cache if etc/example-environment.yml has not changed
+          CACHE_NUMBER: 0
         with:
-          python-version: 3.9.x
+          path: ~/.conda_pkgs_dir
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('./environment.yml')}}
 
-      - name: " install dependencies"
-        run: pip install isort black flake8 pylint
+      - name: "🐍 setup conda environment"
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: anaconda-client-env
+          environment-file: ./environment.yml
+          auto-activate-base: false
+          use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+        run: conda info
+
+      - name: "📦 install package"
+        run: pip install .
 
       - name: "🛠️ run isort"
         run: isort . --check-only
@@ -38,18 +54,26 @@ jobs:
         with:
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
-      - name: "🔧 setup Python"
-        uses: actions/setup-python@v3
+      - name: "🗃️ cache conda"
+        uses: actions/cache@v3
+        env:
+          # Increase this value to reset cache if etc/example-environment.yml has not changed
+          CACHE_NUMBER: 0
         with:
-          python-version: 3.9.x
+          path: ~/.conda_pkgs_dir
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('./environment.yml')}}
 
-      - name: "🐍 update conda environment"
-        run: |
-          $CONDA/bin/conda env update -n topography-ci -f environment.yml
-          $CONDA/bin/conda activate topography-ci
+      - name: "🐍 setup conda environment"
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: anaconda-client-env
+          environment-file: ./environment.yml
+          auto-activate-base: false
+          use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+        run: conda info
 
       - name: "📦 install package"
-        run: $CONDA/bin/pip install .
+        run: pip install .
 
       - name: "💻 pytest"
-        run: "$CONDA/bin/pytest"
+        run: pytest
