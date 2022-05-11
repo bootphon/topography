@@ -1,0 +1,54 @@
+name: Ubuntu
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "☁️ checkout repository"
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+      - name: "🔧 setup Python"
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.9.x
+
+      - name: "🐍 update conda environment"
+        run: $CONDA/bin/conda env update -n base -f environment.yml
+
+      - name: "🛠️ run isort"
+        run: $CONDA/bin/isort . --check-only
+
+      - name: "🛠️ run black"
+        run: $CONDA/bin/black --check .
+
+      - name: "🛠️ run flake8"
+        run: $CONDA/bin/flake8
+
+      - name: "🛠️ run pylint"
+        run: $CONDA/bin/pylint topography
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "☁️ checkout repository"
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+      - name: "🔧 setup Python"
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.9.x
+
+      - name: "🐍 update conda environment"
+        run: $CONDA/bin/conda env update -n base -f environment.yml
+
+      - name: "💻 pytest"
+        run: "$CONDA/bin/pytest"
