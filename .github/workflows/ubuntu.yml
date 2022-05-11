@@ -20,13 +20,13 @@ jobs:
           CACHE_NUMBER: 0
         with:
           path: ~/.conda_pkgs_dir
-          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('./environment.yml')}}
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('environment.yml') }}
 
       - name: "🐍 setup conda environment"
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: topography
-          environment-file: ./environment.yml
+          environment-file: environment.yml
           auto-activate-base: false
           use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
 
@@ -45,8 +45,7 @@ jobs:
 
       - name: "🛠️ run flake8"
         run: |
-          which flake8
-          flake8 --exit-zero
+          flake8 --config .flake8
 
       - name: "🛠️ run pylint"
         run: |
@@ -68,13 +67,13 @@ jobs:
           CACHE_NUMBER: 0
         with:
           path: ~/.conda_pkgs_dir
-          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('./environment.yml')}}
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('environment.yml') }}
 
       - name: "🐍 setup conda environment"
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: topography
-          environment-file: ./environment.yml
+          environment-file: environment.yml
           auto-activate-base: false
           use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
 
