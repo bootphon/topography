@@ -83,5 +83,5 @@ jobs:
 
       - name: "💻 pytest"
         run: |
-          which pytest
+          conda list | grep pytest
           pytest
