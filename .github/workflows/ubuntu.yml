@@ -33,6 +33,12 @@ jobs:
       - name: "📦 install package"
         run: pip install .
 
+      - name: "check"
+        run: |
+          pwd
+          conda info
+          conda list
+
       - name: "🛠️ run isort"
         run: isort . --check-only
 
