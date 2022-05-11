@@ -1,0 +1,49 @@
+name: Ubuntu
+on: push
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: "☁️ checkout repository"
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+      - name: "🗃️ cache conda"
+        uses: actions/cache@v3
+        env:
+          # Increase this value to reset cache if etc/example-environment.yml has not changed
+          CACHE_NUMBER: 0
+        with:
+          path: ~/conda_pkgs_dir
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('environment.yml') }}
+
+      - name: "🐍 setup conda environment"
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: topography
+          environment-file: environment.yml
+          auto-activate-base: false
+          use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+
+      - name: "📦 install package"
+        run: pip install .
+
+      - name: "🛠️ run isort"
+        run: isort topography --check-only
+
+      - name: "🛠️ run black"
+        run: black --check topography
+
+      - name: "🛠️ run flake8"
+        run: flake8 topography
+
+      - name: "🛠️ run pylint"
+        run: pylint topography
+
+      - name: "💻 pytest"
+        run: pytest
