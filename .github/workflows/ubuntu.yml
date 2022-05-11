@@ -15,20 +15,20 @@ jobs:
         with:
           python-version: 3.9.x
 
-      - name: "🐍 update conda environment"
-        run: $CONDA/bin/conda env update -n base -f environment.yml
+      - name: " install dependencies"
+        run: pip install isort black flake8 pylint
 
       - name: "🛠️ run isort"
-        run: $CONDA/bin/isort . --check-only
+        run: isort . --check-only
 
       - name: "🛠️ run black"
-        run: $CONDA/bin/black --check .
+        run: black --check .
 
       - name: "🛠️ run flake8"
-        run: $CONDA/bin/flake8
+        run: flake8
 
       - name: "🛠️ run pylint"
-        run: $CONDA/bin/pylint topography
+        run: pylint topography
 
   test:
     runs-on: ubuntu-latest
@@ -44,7 +44,12 @@ jobs:
           python-version: 3.9.x
 
       - name: "🐍 update conda environment"
-        run: $CONDA/bin/conda env update -n base -f environment.yml
+        run: |
+          $CONDA/bin/conda env update -n topography-ci -f environment.yml
+          $CONDA/bin/conda activate topography-ci
+
+      - name: "📦 install package"
+        run: $CONDA/bin/pip install .
 
       - name: "💻 pytest"
         run: "$CONDA/bin/pytest"
