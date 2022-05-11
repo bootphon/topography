@@ -25,7 +25,7 @@ jobs:
       - name: "🐍 setup conda environment"
         uses: conda-incubator/setup-miniconda@v2
         with:
-          activate-environment: anaconda-client-env
+          activate-environment: topography
           environment-file: ./environment.yml
           auto-activate-base: false
           use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
@@ -36,20 +36,29 @@ jobs:
       - name: "check"
         run: |
           pwd
+          ls
           conda info
           conda list
 
       - name: "🛠️ run isort"
-        run: isort . --check-only
+        run: |
+          conda activate topography
+          isort . --check-only
 
       - name: "🛠️ run black"
-        run: black --check .
+        run: |
+          conda activate topography
+          black --check .
 
       - name: "🛠️ run flake8"
-        run: flake8
+        run: |
+          conda activate topography
+          flake8
 
       - name: "🛠️ run pylint"
-        run: pylint topography
+        run: |
+          conda activate topography
+          pylint topography
 
   test:
     runs-on: ubuntu-latest
@@ -71,7 +80,7 @@ jobs:
       - name: "🐍 setup conda environment"
         uses: conda-incubator/setup-miniconda@v2
         with:
-          activate-environment: anaconda-client-env
+          activate-environment: topography
           environment-file: ./environment.yml
           auto-activate-base: false
           use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
@@ -80,4 +89,6 @@ jobs:
         run: pip install .
 
       - name: "💻 pytest"
-        run: pytest
+        run: |
+          conda activate topography
+          pytest
