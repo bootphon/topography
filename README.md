@@ -8,7 +8,8 @@ Learning the topographic organization of computations in deep learning models
 
 ### Building from source
 
-To install this package, it is recommend to create a dedicated virtual environment with conda.
+To install this package, it is recommended to create a dedicated virtual
+environment with conda.
 
 ```bash
 conda create -f environment.yml
