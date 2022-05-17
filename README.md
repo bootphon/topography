@@ -1,5 +1,6 @@
 # Topography
 
+![Build, lint and test](https://github.com/mxmpl/topography/actions/workflows/ubuntu.yml/badge.svg?branch=release/resnet-cifar)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 Learning the topographic organization of computations in deep learning models
