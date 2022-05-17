@@ -1,5 +1,6 @@
-"""Code from:
-https://github.com/pytorch/examples/blob/648c0bd2f1f12a8767b4a737d6e8577a8192c42d/imagenet/main.py#L369-L412
+"""Helper to compute and store the average and current value of a metric
+(loss, accuracy, ...).
+From: https://github.com/pytorch/examples/blob/648c0bd2f1f12a8767b4a737d6e8577a8192c42d/imagenet/main.py#L369-L412
 """
 from enum import Enum
 
