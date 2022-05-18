@@ -15,6 +15,7 @@ def resnet18(**kwargs):
     .. [resnet] https://arxiv.org/abs/1512.03385
     """
     resnet = models.resnet18(pretrained=False, **kwargs)
+    resnet.fc = nn.Linear(resnet.fc.in_features, out_features=10)
     resnet.conv1 = nn.Conv2d(
         in_channels=3,
         out_channels=64,
