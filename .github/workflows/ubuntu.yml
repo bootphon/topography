@@ -15,7 +15,7 @@ jobs:
       - name: "☁️ checkout repository"
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "🗃️ cache conda"
         uses: actions/cache@v3
