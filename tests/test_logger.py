@@ -1,3 +1,4 @@
+"""Test of the logging utility."""
 import logging
 from tempfile import NamedTemporaryFile
 
