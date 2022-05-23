@@ -8,3 +8,4 @@ notebooks/**/
 .pytest_cache
 htmlcov
 build
+data
