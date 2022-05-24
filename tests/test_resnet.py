@@ -1,7 +1,6 @@
 """Test of the ResNet. Checks if it can overfit a single batch."""
 from tempfile import TemporaryDirectory
 
-import numpy as np
 import torch
 from torch import nn
 from torch.optim import SGD
@@ -14,8 +13,12 @@ from topography.utils import LinearWarmupCosineAnnealingLR
 
 
 def test_resnet():
+    torch.manual_seed(0)
+    torch.use_deterministic_algorithms(True)
     temp_dir = TemporaryDirectory()
-    lr, epochs = 1, 100
+    g = torch.Generator()
+    g.manual_seed(0)
+    lr, epochs = 0.1, 10
     cifar_classes, num_samples, shape = 10, 4, [3, 32, 32]
     device = torch.device("cpu")
     model = resnet18()
@@ -28,7 +31,7 @@ def test_resnet():
     data = torch.randn([num_samples] + shape)
     targets = torch.randint(cifar_classes, [num_samples])
     dataset = TensorDataset(data, targets)
-    dataloader = DataLoader(dataset, batch_size=num_samples)
+    dataloader = DataLoader(dataset, batch_size=num_samples, generator=g)
     criterion = nn.CrossEntropyLoss()
 
     for _ in range(epochs):
@@ -40,7 +43,7 @@ def test_resnet():
     output = model(data)
     assert isinstance(output, torch.Tensor)
     assert output.shape == (num_samples, cifar_classes)
-    assert np.isclose(accuracy(output, targets), 1.0)
+    assert accuracy(output, targets) == 1.0
 
     writer.save(mode="test", metric="acc", maximize=True, model=model)
     writer.save(mode="test", metric="loss", maximize=False, model=model)

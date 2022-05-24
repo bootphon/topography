@@ -1,9 +1,9 @@
 name: Build, lint and test.
 on:
   push:
-    branches: main
+    branches: [main]
   pull_request:
-    branches: main
+    branches: [main]
 
 jobs:
   lint-test:
@@ -50,4 +50,4 @@ jobs:
         run: pylint topography
 
       - name: "💻 pytest"
-        run: pytest
+        run: python -m pytest
