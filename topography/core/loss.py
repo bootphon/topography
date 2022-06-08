@@ -12,7 +12,7 @@ TensorDict = typing.OrderedDict[str, torch.Tensor]
 @dataclass
 class MetricOutput:
     value: float
-    extras: typing.Dict[str, float]
+    extras: typing.Dict[str, float] = {}
 
 
 def _reduce(inp: torch.Tensor, reduction: str) -> torch.Tensor:

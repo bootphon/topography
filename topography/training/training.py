@@ -35,8 +35,7 @@ def accuracy(output: torch.Tensor, labels: torch.Tensor) -> MetricOutput:
     """
     _, predicted = torch.max(output.data, 1)
     return MetricOutput(
-        value=float((predicted == labels).sum()) / float(output.size(0)),
-        extras={},
+        value=float((predicted == labels).sum()) / float(output.size(0))
     )
 
 
