@@ -6,6 +6,39 @@ import torch
 from torch.nn.modules.loss import _Loss
 
 TensorDict = typing.OrderedDict[str, torch.Tensor]
+LossOutput = typing.Union[torch.Tensor, TensorDict]
+
+
+def _reduce(inp: torch.Tensor, reduction: str) -> torch.Tensor:
+    """Reduce the input Tensor with the `reduction` method. See
+    TopographicLoss for details on `reduction`.
+
+    Parameters
+    ----------
+    inp : torch.Tensor
+        Input tensor.
+    reduction : str
+        Reduction method.
+
+    Returns
+    -------
+    torch.Tensor
+        Reduced tensor.
+
+    Raises
+    ------
+    ValueError
+        If `reduction` is not a valid value for reduction.
+    """
+    if reduction == "none":
+        output = inp
+    elif reduction == "sum":
+        output = inp.sum()
+    elif reduction == "mean":
+        output = inp.mean()
+    else:
+        raise ValueError(f"{reduction} is not a valid value for reduction")
+    return output
 
 
 def _channel_correlation(activation: torch.Tensor, eps: float) -> torch.Tensor:
@@ -40,6 +73,8 @@ def _channel_correlation(activation: torch.Tensor, eps: float) -> torch.Tensor:
 def topographic_loss(
     activations: TensorDict,
     inverse_distances: TensorDict,
+    *,
+    extras: bool = False,
     eps: float = 1e-8,
     reduction: str = "mean",
 ) -> torch.Tensor:
@@ -52,15 +87,18 @@ def topographic_loss(
     inverse_distances : TensorDict
         Inverse distances between positions of the channels
         for each Conv2d layer.
+    extras: bool, optional
+        Whether to return a tuple containing the reduced loss
+        and a dictionnary of the loss for each layer, or only the
+        reduced loss. By default False.
     eps : float, optional
         Small value to avoid division by zero when computing the
-        correlation between channels, by default 1e-8
+        correlation between channels, by default 1e-8.
     reduction : str, optional
         Specifies the reduction to apply to the output:
-        `none`, `mean`,`sum` or `debug`. `none`: no reduction will
+        `none`, `mean` or `sum`. `none`: no reduction will
         be applied, `mean`: the mean of the output is taken,
-        `sum`: the output will be summed, `debug`: a dictionnary with
-        the loss for each layer is returnd. By default "mean".
+        `sum`: the output will be summed. By default "mean".
 
     Returns
     -------
@@ -70,8 +108,7 @@ def topographic_loss(
     Raises
     ------
     ValueError
-        If the reduction method is not `none`, `sum`, `mean` or
-        `debug`.
+        If the reduction method is not `none`, `sum` or `mean`.
     """
     first_key = next(iter(activations))
     batch_size = activations[first_key].shape[0]
@@ -84,14 +121,11 @@ def topographic_loss(
         layer_loss = ((correlation - inv_dist) ** 2).sum((1, 2))
         layer_loss /= correlation.shape[1] * (correlation.shape[1] - 1) // 2
         total_loss += layer_loss
-        loss[name] = layer_loss
-    if reduction == "none":
-        return total_loss
-    if reduction == "sum":
-        return total_loss.sum()
-    if reduction == "mean":
-        return total_loss.mean()
-    return loss
+        loss[name] = _reduce(layer_loss, reduction)
+    output = _reduce(total_loss, reduction)
+    if extras:
+        return output, loss
+    return output
 
 
 class TopographicLoss(_Loss):
@@ -99,17 +133,28 @@ class TopographicLoss(_Loss):
     a topographic model.
     """
 
-    __constants__ = ["eps", "reduction"]
+    __constants__ = ["eps", "extras", "reduction"]
     eps: float
+    extras: bool
 
-    def __init__(self, *, eps: float = 1e-8, reduction: str = "mean") -> None:
+    def __init__(
+        self,
+        *,
+        extras: bool = False,
+        eps: float = 1e-8,
+        reduction: str = "mean",
+    ) -> None:
         """Instantiates the topographic loss.
 
         Parameters
         ----------
+        extras: bool, optional
+            Whether to return a tuple containing the reduced loss
+            and a dictionnary of the loss for each layer, or only the
+            reduced loss. By default False.
         eps : float, optional
             Small value to avoid division by zero when computing the
-            correlation between channels, by default 1e-8
+            correlation between channels, by default 1e-8.
         reduction : str, optional
             Specifies the reduction to apply to the output:
             `none`, `mean`,`sum` or `debug`. `none`: no reduction will
@@ -117,18 +162,16 @@ class TopographicLoss(_Loss):
             `sum`: the output will be summed, `debug`: a dictionnary with
             the loss for each layer is returnd. By default "mean".
         """
-        if reduction not in ["none", "mean", "sum", "debug"]:
-            raise ValueError(
-                f"Reduction method '{reduction}' is not available."
-                "Must be either 'none', 'sum', 'mean' or 'debug'."
-            )
+        if reduction not in ["none", "mean", "sum"]:
+            raise ValueError(f"{reduction} is not a valid value for reduction")
 
         super().__init__(None, None, reduction)
+        self.extras = extras
         self.eps = eps
 
     def forward(
         self, activations: TensorDict, inverse_distances: TensorDict
-    ) -> torch.Tensor:
+    ) -> LossOutput:
         """Computes the topographic loss for a given topographic model.
 
         Parameters
@@ -141,12 +184,13 @@ class TopographicLoss(_Loss):
 
         Returns
         -------
-        torch.Tensor
+        LossOutput
             Computed topographic loss.
         """
         return topographic_loss(
             activations,
             inverse_distances,
+            extras=self.extras,
             eps=self.eps,
             reduction=self.reduction,
         )
