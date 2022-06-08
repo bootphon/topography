@@ -104,7 +104,7 @@ def inverse_distance(
     return inv_dist
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Simple check in order to visualize how the positions are distributed.
     import matplotlib.pyplot as plt
 

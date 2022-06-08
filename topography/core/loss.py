@@ -91,12 +91,7 @@ def topographic_loss(
         return total_loss.sum()
     if reduction == "mean":
         return total_loss.mean()
-    if reduction == "debug":
-        return loss
-    raise ValueError(
-        f"Reduction method '{reduction}' is not available."
-        "Must be either 'none', 'sum', 'mean' or 'debug'."
-    )
+    return loss
 
 
 class TopographicLoss(_Loss):
@@ -122,6 +117,12 @@ class TopographicLoss(_Loss):
             `sum`: the output will be summed, `debug`: a dictionnary with
             the loss for each layer is returnd. By default "mean".
         """
+        if reduction not in ["none", "mean", "sum", "debug"]:
+            raise ValueError(
+                f"Reduction method '{reduction}' is not available."
+                "Must be either 'none', 'sum', 'mean' or 'debug'."
+            )
+
         super().__init__(None, None, reduction)
         self.eps = eps
 
