@@ -8,9 +8,8 @@ from datetime import datetime
 from pathlib import Path
 
 import torch
-from torch.utils.tensorboard import SummaryWriter
-
 from topography.utils import AverageMeter, get_logger
+from torch.utils.tensorboard import SummaryWriter
 
 
 class Writer:
@@ -174,7 +173,7 @@ class Writer:
             Postfix string. Used in tqdm progress bar.
         """
         meters = self._meters[self._mode][self._epochs[self._mode]].values()
-        return ", ".join([str(meter) for meter in meters])
+        return ", ".join([str(meter) for meter in meters if not meter.name.startswith("extras")])
 
     def summary(self) -> str:
         """Summary of all tracked metrics on the current epoch and mode.

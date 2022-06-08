@@ -5,13 +5,13 @@ the `inverse_distance` buffer.
 """
 import copy
 from collections import OrderedDict
+from operator import attrgetter
 from typing import Callable
 
 import torch
 import torch.nn.functional as F
-from torch import nn
-
 from topography.core.distance import inverse_distance
+from torch import nn
 
 
 class TopographicModel(nn.Module):
@@ -70,11 +70,14 @@ class TopographicModel(nn.Module):
 
             return hook
 
-        self.inverse_distance = OrderedDict()
+        self._names = names
         for name, layer in zip(names, conv_layers):
             layer.register_buffer("inverse_distance", inv_dist[name])
             layer.register_forward_hook(get_activation(name))
-            self.inverse_distance[name] = layer.inverse_distance
+
+    @property
+    def inverse_distance(self) -> OrderedDict:
+        return OrderedDict(zip(self._names, [attrgetter(name)(self.model).inverse_distance for name in self._names]))
 
     def forward(self, inp: torch.Tensor) -> torch.Tensor:
         """Defines the computation performed by the TopographicModel:

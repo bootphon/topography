@@ -1,7 +1,7 @@
 """"Provides the topographic loss, following PyTorch API conventions."""
+import dataclasses
 import typing
 from collections import OrderedDict
-from dataclasses import dataclass
 
 import torch
 from torch.nn.modules.loss import _Loss
@@ -9,10 +9,10 @@ from torch.nn.modules.loss import _Loss
 TensorDict = typing.OrderedDict[str, torch.Tensor]
 
 
-@dataclass
+@dataclasses.dataclass
 class MetricOutput:
-    value: float
-    extras: typing.Dict[str, float] = {}
+    value: typing.Union[float, torch.Tensor]
+    extras: typing.Dict[str, float] = dataclasses.field(default_factory=dict)
 
 
 def _reduce(inp: torch.Tensor, reduction: str) -> torch.Tensor:
