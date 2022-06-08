@@ -10,8 +10,9 @@ from typing import Callable
 
 import torch
 import torch.nn.functional as F
-from topography.core.distance import inverse_distance
 from torch import nn
+
+from topography.core.distance import inverse_distance
 
 
 class TopographicModel(nn.Module):
@@ -77,7 +78,10 @@ class TopographicModel(nn.Module):
 
     @property
     def inverse_distance(self) -> OrderedDict:
-        return OrderedDict(zip(self._names, [attrgetter(name)(self.model).inverse_distance for name in self._names]))
+        inv_dist = OrderedDict()
+        for name in self._names:
+            inv_dist[name] = attrgetter(name)(self.model).inverse_distance
+        return inv_dist
 
     def forward(self, inp: torch.Tensor) -> torch.Tensor:
         """Defines the computation performed by the TopographicModel:

@@ -4,12 +4,13 @@ import time
 from typing import Callable, Union
 
 import torch
-from topography.core.loss import MetricOutput, TensorDict
-from topography.training.writer import Writer
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+
+from topography.core.loss import MetricOutput, TensorDict
+from topography.training.writer import Writer
 
 Metric = Union[
     Callable[[torch.Tensor, torch.Tensor], MetricOutput],
@@ -137,7 +138,7 @@ def evaluate(
             acc = accuracy(output, target)
             writer["loss"].update(loss.value.item(), data.size(0))
             writer["acc"].update(acc.value, data.size(0))
-            for name, value in {**loss.extras, **acc.extras}:
+            for name, value in {**loss.extras, **acc.extras}.items():
                 writer[f"extras/{name}"].update(value, data.size(0))
             writer.log(batch_idx)
         print(writer.summary())

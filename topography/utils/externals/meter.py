@@ -15,7 +15,7 @@ class Summary(Enum):
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
-    def __init__(self, name, fmt=':f', summary_type=Summary.AVERAGE):
+    def __init__(self, name, fmt=":f", summary_type=Summary.AVERAGE):
         self.name = name
         self.fmt = fmt
         self.summary_type = summary_type
@@ -34,20 +34,20 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
     def __str__(self):
-        fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
+        fmtstr = "{name} {val" + self.fmt + "} ({avg" + self.fmt + "})"
         return fmtstr.format(**self.__dict__)
 
     def summary(self):
-        fmtstr = ''
+        fmtstr = ""
         if self.summary_type is Summary.NONE:
-            fmtstr = ''
+            fmtstr = ""
         elif self.summary_type is Summary.AVERAGE:
-            fmtstr = '{name} {avg:.3f}'
+            fmtstr = "{name} {avg:.3f}"
         elif self.summary_type is Summary.SUM:
-            fmtstr = '{name} {sum:.3f}'
+            fmtstr = "{name} {sum:.3f}"
         elif self.summary_type is Summary.COUNT:
-            fmtstr = '{name} {count:.3f}'
+            fmtstr = "{name} {count:.3f}"
         else:
-            raise ValueError('invalid summary type %r' % self.summary_type)
+            raise ValueError("invalid summary type %r" % self.summary_type)
 
         return fmtstr.format(**self.__dict__)
