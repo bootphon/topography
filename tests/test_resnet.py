@@ -6,6 +6,7 @@ from torch import nn
 from torch.optim import SGD
 from torch.utils.data import DataLoader, TensorDataset
 
+from topography import MetricOutput
 from topography.models import resnet18
 from topography.training import Writer, evaluate, train
 from topography.training.training import accuracy
@@ -32,7 +33,10 @@ def test_resnet():
     targets = torch.randint(cifar_classes, [num_samples])
     dataset = TensorDataset(data, targets)
     dataloader = DataLoader(dataset, batch_size=num_samples, generator=g)
-    criterion = nn.CrossEntropyLoss()
+    cross_entropy = nn.CrossEntropyLoss()
+
+    def criterion(output, target):
+        return MetricOutput(value=cross_entropy(output, target))
 
     for _ in range(epochs):
         train(model, dataloader, optimizer, criterion, device, writer)
@@ -43,7 +47,7 @@ def test_resnet():
     output = model(data)
     assert isinstance(output, torch.Tensor)
     assert output.shape == (num_samples, cifar_classes)
-    assert accuracy(output, targets) == 1.0
+    assert accuracy(output, targets).value == 1.0
 
     writer.save(mode="test", metric="acc", maximize=True, model=model)
     writer.save(mode="test", metric="loss", maximize=False, model=model)

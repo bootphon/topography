@@ -29,8 +29,7 @@ class TopographicModel(nn.Module):
         """Creates the model. It is the same as the original model,
         but adds an `activations` field that records outputs
         of each Conv2d layer. Also adds an `inverse_distance`
-        buffer to them, and a `inverse_distance` field to the
-        TopographicModel in order to get them directly.
+        buffer to them.
 
         Parameters
         ----------
@@ -78,6 +77,19 @@ class TopographicModel(nn.Module):
 
     @property
     def inverse_distance(self) -> OrderedDict:
+        """Get the inverse distances between the channels positions
+        of each Conv2d layer.
+        For each layer, a buffer "inverse_distance" is registered, and we
+        retrieve them in this method.
+        It is implemented that way in order for them to be inside
+        the `state_dict` and to move to the same device as the model when
+        needed.
+
+        Returns
+        -------
+        OrderedDict
+            The dictionnary of inverse distances.
+        """
         inv_dist = OrderedDict()
         for name in self._names:
             inv_dist[name] = attrgetter(name)(self.model).inverse_distance

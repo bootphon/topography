@@ -1,7 +1,7 @@
 """Provides training and evaluation loops.
 """
 import time
-from typing import Callable, Union
+from typing import Callable
 
 import torch
 from torch import nn
@@ -9,13 +9,9 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-from topography.core.loss import MetricOutput, TensorDict
+from topography.base import Metric
+from topography.core.loss import MetricOutput
 from topography.training.writer import Writer
-
-Metric = Union[
-    Callable[[torch.Tensor, torch.Tensor], MetricOutput],
-    Callable[[TensorDict, TensorDict], MetricOutput],
-]
 
 
 def accuracy(output: torch.Tensor, labels: torch.Tensor) -> MetricOutput:
