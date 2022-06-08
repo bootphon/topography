@@ -24,7 +24,7 @@ def accuracy(output: torch.Tensor, labels: torch.Tensor) -> MetricOutput:
     Parameters
     ----------
     output : torch.Tensor
-        Raw outputs of the network.
+        Logits outputs of the network.
     labels : torch.Tensor
         Target labels.
 
@@ -66,7 +66,7 @@ def train(
         Writing utility.
     """
     model.train()
-    writer.set("train", ["loss", "acc", "batch-time", "load-time"])
+    writer.next_epoch("train")
     end = time.time()
 
     with tqdm(total=len(dataloader), desc=writer.desc()) as pbar:
@@ -129,7 +129,7 @@ def evaluate(
         Evaluation mode ('test' or 'val'), by default 'test'.
     """
     model.eval()
-    writer.set(mode, ["loss", "acc"])
+    writer.next_epoch(mode)
 
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(dataloader):
