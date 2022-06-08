@@ -1,12 +1,18 @@
 """"Provides the topographic loss, following PyTorch API conventions."""
 import typing
 from collections import OrderedDict
+from dataclasses import dataclass
 
 import torch
 from torch.nn.modules.loss import _Loss
 
 TensorDict = typing.OrderedDict[str, torch.Tensor]
-LossOutput = typing.Union[torch.Tensor, TensorDict]
+
+
+@dataclass
+class MetricOutput:
+    value: float
+    extras: typing.Dict[str, float]
 
 
 def _reduce(inp: torch.Tensor, reduction: str) -> torch.Tensor:
@@ -74,10 +80,9 @@ def topographic_loss(
     activations: TensorDict,
     inverse_distances: TensorDict,
     *,
-    extras: bool = False,
     eps: float = 1e-8,
     reduction: str = "mean",
-) -> torch.Tensor:
+) -> MetricOutput:
     """Functional implementation of the topographic loss.
 
     Parameters
@@ -87,10 +92,6 @@ def topographic_loss(
     inverse_distances : TensorDict
         Inverse distances between positions of the channels
         for each Conv2d layer.
-    extras: bool, optional
-        Whether to return a tuple containing the reduced loss
-        and a dictionnary of the loss for each layer, or only the
-        reduced loss. By default False.
     eps : float, optional
         Small value to avoid division by zero when computing the
         correlation between channels, by default 1e-8.
@@ -102,7 +103,7 @@ def topographic_loss(
 
     Returns
     -------
-    torch.Tensor
+    MetricOutput
         Computed topographic loss.
 
     Raises
@@ -121,11 +122,8 @@ def topographic_loss(
         layer_loss = ((correlation - inv_dist) ** 2).sum((1, 2))
         layer_loss /= correlation.shape[1] * (correlation.shape[1] - 1) // 2
         total_loss += layer_loss
-        loss[name] = _reduce(layer_loss, reduction)
-    output = _reduce(total_loss, reduction)
-    if extras:
-        return output, loss
-    return output
+        loss[f"topo-loss/{name}"] = _reduce(layer_loss, reduction).item()
+    return MetricOutput(value=_reduce(total_loss, reduction), extras=loss)
 
 
 class TopographicLoss(_Loss):
@@ -133,14 +131,12 @@ class TopographicLoss(_Loss):
     a topographic model.
     """
 
-    __constants__ = ["eps", "extras", "reduction"]
+    __constants__ = ["eps", "reduction"]
     eps: float
-    extras: bool
 
     def __init__(
         self,
         *,
-        extras: bool = False,
         eps: float = 1e-8,
         reduction: str = "mean",
     ) -> None:
@@ -148,10 +144,6 @@ class TopographicLoss(_Loss):
 
         Parameters
         ----------
-        extras: bool, optional
-            Whether to return a tuple containing the reduced loss
-            and a dictionnary of the loss for each layer, or only the
-            reduced loss. By default False.
         eps : float, optional
             Small value to avoid division by zero when computing the
             correlation between channels, by default 1e-8.
@@ -166,12 +158,11 @@ class TopographicLoss(_Loss):
             raise ValueError(f"{reduction} is not a valid value for reduction")
 
         super().__init__(None, None, reduction)
-        self.extras = extras
         self.eps = eps
 
     def forward(
         self, activations: TensorDict, inverse_distances: TensorDict
-    ) -> LossOutput:
+    ) -> MetricOutput:
         """Computes the topographic loss for a given topographic model.
 
         Parameters
@@ -184,13 +175,12 @@ class TopographicLoss(_Loss):
 
         Returns
         -------
-        LossOutput
+        MetricOutput
             Computed topographic loss.
         """
         return topographic_loss(
             activations,
             inverse_distances,
-            extras=self.extras,
             eps=self.eps,
             reduction=self.reduction,
         )

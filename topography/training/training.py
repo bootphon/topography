@@ -1,7 +1,7 @@
 """Provides training and evaluation loops.
 """
 import time
-from typing import Callable
+from typing import Callable, Union
 
 import torch
 from torch import nn
@@ -9,10 +9,16 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
+from topography.core.loss import MetricOutput, TensorDict
 from topography.training.writer import Writer
 
+Metric = Union[
+    Callable[[torch.Tensor, torch.Tensor], MetricOutput],
+    Callable[[TensorDict, TensorDict], MetricOutput],
+]
 
-def accuracy(output: torch.Tensor, labels: torch.Tensor) -> float:
+
+def accuracy(output: torch.Tensor, labels: torch.Tensor) -> MetricOutput:
     """Compute batch accuracy.
 
     Parameters
@@ -24,18 +30,21 @@ def accuracy(output: torch.Tensor, labels: torch.Tensor) -> float:
 
     Returns
     -------
-    float
+    MetricOutput
         Accuracy on the given batch.
     """
     _, predicted = torch.max(output.data, 1)
-    return float((predicted == labels).sum()) / float(output.size(0))
+    return MetricOutput(
+        value=float((predicted == labels).sum()) / float(output.size(0)),
+        extras={},
+    )
 
 
 def train(
     model: nn.Module,
     dataloader: DataLoader,
     optimizer: Optimizer,
-    criterion: Callable,
+    criterion: Metric,
     device: torch.device,
     writer: Writer,
 ) -> None:
@@ -72,12 +81,17 @@ def train(
 
             # Compute gradient and do optimizer step
             optimizer.zero_grad()
-            loss.backward()
+            loss.value.backward()
             optimizer.step()
 
+            # Compute accuracy
+            acc = accuracy(output, target)
+
             # Measure accuracy and record loss
-            writer["loss"].update(loss.item(), data.size(0))
-            writer["acc"].update(accuracy(output, target), data.size(0))
+            writer["loss"].update(loss.value.item(), data.size(0))
+            writer["acc"].update(acc.value, data.size(0))
+            for name, value in {**loss.extras, **acc.extras}:
+                writer[f"extras/{name}"].update(value, data.size(0))
 
             # Measure elapsed time
             writer["batch-time"].update(time.time() - end)
@@ -121,9 +135,11 @@ def evaluate(
         for batch_idx, (data, target) in enumerate(dataloader):
             data, target = data.to(device), target.to(device)
             output = model(data)
-            loss = criterion(output, target).item()
+            loss = criterion(output, target)
             acc = accuracy(output, target)
-            writer["loss"].update(loss, data.size(0))
-            writer["acc"].update(acc, data.size(0))
+            writer["loss"].update(loss.value.item(), data.size(0))
+            writer["acc"].update(acc.value, data.size(0))
+            for name, value in {**loss.extras, **acc.extras}:
+                writer[f"extras/{name}"].update(value, data.size(0))
             writer.log(batch_idx)
         print(writer.summary())
