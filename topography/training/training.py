@@ -9,8 +9,7 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-from topography.base import Metric
-from topography.core.loss import MetricOutput
+from topography.base import Metric, MetricOutput
 from topography.training.writer import Writer
 
 
