@@ -66,7 +66,7 @@ class TopographicModel(nn.Module):
 
         def get_activation(name: str) -> Callable[..., None]:
             def hook(_, __, out: torch.Tensor) -> None:
-                self.activations[name] = F.relu(out)
+                self.activations[name] = out
 
             return hook
 
