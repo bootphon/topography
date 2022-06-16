@@ -9,7 +9,6 @@ from operator import attrgetter
 from typing import Callable
 
 import torch
-import torch.nn.functional as F
 from torch import nn
 
 from topography.core.distance import inverse_distance
