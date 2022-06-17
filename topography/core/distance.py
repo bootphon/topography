@@ -1,19 +1,21 @@
 """Assign positions in 2D surfaces or 3D volumes, and compute
 the inverse distance between those positions.
 """
-from collections import OrderedDict
+import math
 from typing import Callable, Dict
 
-import numpy as np
 import torch
 
 
 def hypercube(
-    num: int, dimension: int, low: float = 0, high: float = 1
-) -> np.ndarray:
+    num_points: int,
+    dimension: int,
+    lower_bound: float = 0,
+    upper_bound: float = 1,
+) -> torch.Tensor:
     """Creates `num` positions in a cube of `dimension` dimensions.
     If there exists an integer `num_axis` such that
-    `num_axis**dimension == num`, the positions will be distributed
+    `num_axis**dimension == num_points`, the positions will be distributed
     uniformly in the cube.
     Else, the closes `num_axis` will be taken, `num_axis**dimension`
     positions are computed and only the first `num` positions are
@@ -21,53 +23,44 @@ def hypercube(
 
     Parameters
     ----------
-    num : int
+    num_points : int
         Number of positions to create.
     dimension : int
-        Dimension of the positions.
-    low : float, optional
+        Dimension of the positions. 1D for a line, 2D for a square grid,
+        3D for a grid in a cube, etc.
+    lower_bound : float, optional
         Lower bound of each coordinate in the cube, by default 0.
-    high : float, optional
+    upper_bound : float, optional
         Higher bound of each coordinate in the cube, by default 1.
 
     Returns
     -------
-    np.ndarray
-        Array of positions, of shape (`num`, `dimension`)
+    torch.Tensor
+        Tensor of positions, of shape (`num_points`, `dimension`).
     """
-    num_axis = int(np.ceil(np.power(num, 1 / dimension)))
-    coords = [np.linspace(low, high, num_axis) for _ in range(dimension)]
-    return np.array(np.meshgrid(*coords)).reshape(dimension, -1).T[:num]
+    num_axis = int(math.ceil(num_points ** (1 / dimension)))
+    coords = [
+        torch.linspace(lower_bound, upper_bound, num_axis)
+        for _ in range(dimension)
+    ]
+    return (
+        torch.cat(torch.meshgrid(*coords, indexing="xy"))
+        .reshape(dimension, -1)
+        .T[:num_points]
+    )
 
 
-def euclidean_distance(coords: np.ndarray, eps: float = 1e-8) -> np.ndarray:
-    """Euclidean distance between positions.
-
-    Parameters
-    ----------
-    coords : np.ndarray
-        Positions of the channels, of shape (`out_channels`, `dimension`).
-    eps : float, optional
-        Small value in order to avoid division by zero when computing
-        the inverse of this distance, by default 1e-8.
-
-    Returns
-    -------
-    np.ndarray
-        Matrix of distances, of shape (`out_channels`, `out_channels`).
-    """
-    return np.linalg.norm(coords[:, None, :] - coords, axis=-1) + eps
-
-
-_DISTANCES: Dict[str, Callable] = {"euclidean": euclidean_distance}
-_POSITIONS: Dict[str, Callable] = {"cube": hypercube}
+_DISTANCES: Dict[str, Callable] = {
+    "euclidean": lambda coords: torch.cdist(coords, coords, p=2)
+}
+_POSITIONS: Dict[str, Callable] = {"hypercube": hypercube}
 
 
 def inverse_distance(
     out_channels: Dict[str, int],
     dimension: int = 2,
     norm: str = "euclidean",
-    position_scheme: str = "cube",
+    position_scheme: str = "hypercube",
 ) -> Dict[str, torch.Tensor]:
     """Compute the inverse distance matrices to be used in the topographic
     loss. Function called when creating the TopographicModel.
@@ -86,21 +79,19 @@ def inverse_distance(
         Which norm between positions to use. Must be "euclidean",
         by default "euclidean".
     position_scheme : str, optional
-        How to assign positions. Must be "cube", by default "cube".
+        How to assign positions. Must be "hypercube", by default "hypercube".
 
     Returns
     -------
     Dict[str, torch.Tensor]
         Dictionnary of inverse distance matrices for each Conv2d layer.
     """
-    inv_dist = OrderedDict()
+    inv_dist = {}
     assign_position = _POSITIONS[position_scheme]
     distance = _DISTANCES[norm]
-    for name, channels in out_channels.items():
-        coords = assign_position(channels, dimension)
-        inv_dist[name] = torch.triu(
-            torch.from_numpy(1 / (distance(coords) + 1)), diagonal=1
-        )
+    for layer, num_channels in out_channels.items():
+        coords = assign_position(num_channels, dimension)
+        inv_dist[layer] = torch.triu(1 / (distance(coords) + 1), diagonal=1)
     return inv_dist
 
 

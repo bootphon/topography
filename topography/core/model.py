@@ -23,7 +23,7 @@ class TopographicModel(nn.Module):
         model: nn.Module,
         dimension: int = 2,
         norm: str = "euclidean",
-        position_scheme: str = "cube",
+        position_scheme: str = "hypercube",
     ) -> None:
         """Creates the model. It is the same as the original model,
         but adds an `activations` field that records outputs
@@ -41,7 +41,8 @@ class TopographicModel(nn.Module):
             Which norm between positions to use. Must be "euclidean",
             by default "euclidean".
         position_scheme : str, optional
-            How to assign positions. Must be "cube", by default "cube".
+            How to assign positions. Must be "hypercube", by default
+            "hypercube".
         """
         super().__init__()
         self.model = copy.deepcopy(model)
@@ -69,7 +70,7 @@ class TopographicModel(nn.Module):
 
             return hook
 
-        self._names = names
+        self._conv_layer_names = names
         for name, layer in zip(names, conv_layers):
             layer.register_buffer("inverse_distance", inv_dist[name])
             layer.register_forward_hook(get_activation(name))
@@ -90,7 +91,7 @@ class TopographicModel(nn.Module):
             The dictionnary of inverse distances.
         """
         inv_dist = OrderedDict()
-        for name in self._names:
+        for name in self._conv_layer_names:
             inv_dist[name] = attrgetter(name)(self.model).inverse_distance
         return inv_dist
 
