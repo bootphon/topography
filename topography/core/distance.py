@@ -28,9 +28,9 @@ def hypercube(
     dimension : int
         Dimension of the positions. 1D for a line, 2D for a square grid,
         3D for a grid in a cube, etc.
-    low : float, optional
+    lower_bound : float, optional
         Lower bound of each coordinate in the cube, by default 0.
-    high : float, optional
+    upper_bound : float, optional
         Higher bound of each coordinate in the cube, by default 1.
 
     Returns
