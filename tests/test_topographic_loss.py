@@ -2,7 +2,7 @@
 import pytest
 import torch
 
-from topography import TopographicLoss, TopographicModel
+from topography import TopographicLoss, TopographicModel, topographic_loss
 from topography.models import resnet18
 
 
@@ -18,4 +18,7 @@ def test_topographic_loss(reduction):
 def test_topographic_loss_bad_reduction():
     with pytest.raises(ValueError) as err:
         TopographicLoss(reduction="bad")
+    assert "Reduction method 'bad' is not available" in str(err.value)
+    with pytest.raises(ValueError) as err:
+        topographic_loss({}, {}, reduction="bad")
     assert "Reduction method 'bad' is not available" in str(err.value)
