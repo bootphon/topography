@@ -1,7 +1,7 @@
 """Provides training and evaluation loops.
 """
 import time
-from typing import Callable
+from typing import Callable, Union
 
 import torch
 from torch import nn
@@ -11,6 +11,8 @@ from tqdm.auto import tqdm
 
 from topography.base import Metric, MetricOutput
 from topography.training.writer import Writer
+
+PyTorchLoss = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
 
 def accuracy(output: torch.Tensor, labels: torch.Tensor) -> MetricOutput:
@@ -38,9 +40,11 @@ def train(
     model: nn.Module,
     dataloader: DataLoader,
     optimizer: Optimizer,
-    criterion: Metric,
+    criterion: Union[Metric, PyTorchLoss],
     device: torch.device,
     writer: Writer,
+    *,
+    is_pytorch_loss: bool = False,
 ) -> None:
     """Training loop.
 
@@ -52,16 +56,26 @@ def train(
         Dataloader.
     optimizer : Optimizer
         Optimizer.
-    criterion : Callable
+    criterion : Union[Metric, PyTorchLoss]
         Loss function.
     device : torch.device
         Device, either CPU or CUDA GPU.
     writer : Writer
         Writing utility.
+    is_pytorch_loss: bool
+        Has to be True if the given `criterion` is a loss from PyTorch.
+        Else, it is considered to be a Metric and to return
+        a MetricOutput with two fields: value and extras.
     """
     model.train()
     writer.next_epoch("train")
     end = time.time()
+
+    if is_pytorch_loss:
+        old_criterion = criterion
+        criterion = lambda output, target: MetricOutput(
+            value=old_criterion(output, target)
+        )
 
     with tqdm(total=len(dataloader), desc=writer.desc()) as pbar:
         for batch_idx, (data, target) in enumerate(dataloader):
@@ -103,7 +117,9 @@ def evaluate(
     criterion: Callable,
     device: torch.device,
     writer: Writer,
+    *,
     mode: str = "test",
+    is_pytorch_loss: bool = False,
 ) -> None:
     """Testing or validation loop.
 
@@ -121,9 +137,19 @@ def evaluate(
         Writing utility.
     mode : str
         Evaluation mode ('test' or 'val'), by default 'test'.
+    is_pytorch_loss: bool
+        Has to be True if the given `criterion` is a loss from PyTorch.
+        Else, it is considered to be a Metric and to return
+        a MetricOutput with two fields: value and extras.
     """
     model.eval()
     writer.next_epoch(mode)
+
+    if is_pytorch_loss:
+        old_criterion = criterion
+        criterion = lambda output, target: MetricOutput(
+            value=old_criterion(output, target)
+        )
 
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(dataloader):

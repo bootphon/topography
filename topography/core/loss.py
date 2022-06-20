@@ -105,11 +105,8 @@ def topographic_loss(
     ValueError
         If the reduction method is not `none`, `sum` or `mean`.
     """
-    if reduction not in ["none", "mean", "sum", "debug"]:
-        raise ValueError(
-            f"Reduction method '{reduction}' is not available."
-            "Must be either 'none', 'sum', 'mean' or 'debug'."
-        )
+    if reduction not in ["none", "mean", "sum"]:
+        raise ValueError(f"{reduction} is not a valid value for reduction")
     first_key = next(iter(activations))
     batch_size = activations[first_key].shape[0]
     loss = OrderedDict()

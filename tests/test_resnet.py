@@ -33,15 +33,28 @@ def test_resnet_standard():
     targets = torch.randint(cifar_classes, [num_samples])
     dataset = TensorDataset(data, targets)
     dataloader = DataLoader(dataset, batch_size=num_samples, generator=g)
-    cross_entropy = nn.CrossEntropyLoss()
-
-    def criterion(output, target):
-        return MetricOutput(value=cross_entropy(output, target))
+    criterion = nn.CrossEntropyLoss()
 
     for _ in range(epochs):
-        train(model, dataloader, optimizer, criterion, device, writer)
+        train(
+            model,
+            dataloader,
+            optimizer,
+            criterion,
+            device,
+            writer,
+            is_pytorch_loss=True,
+        )
         scheduler.step()
-    evaluate(model, dataloader, criterion, device, writer, mode="test")
+    evaluate(
+        model,
+        dataloader,
+        criterion,
+        device,
+        writer,
+        mode="test",
+        is_pytorch_loss=True,
+    )
 
     model.eval()
     output = model(data)

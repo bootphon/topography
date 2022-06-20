@@ -3,6 +3,7 @@ import pytest
 import torch
 
 from topography import TopographicLoss, TopographicModel, topographic_loss
+from topography.core.loss import _reduce
 from topography.models import resnet18
 
 
@@ -24,4 +25,8 @@ def test_topographic_loss_bad_reduction():
     inverse_distances = {"layer": torch.rand(3, 3)}
     with pytest.raises(ValueError) as err:
         topographic_loss(activations, inverse_distances, reduction="bad")
+    assert "is not a valid value for reduction" in str(err.value)
+
+    with pytest.raises(ValueError) as err:
+        _reduce(torch.zeros(2, 2), reduction="bad")
     assert "is not a valid value for reduction" in str(err.value)
