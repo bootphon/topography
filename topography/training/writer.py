@@ -200,7 +200,7 @@ class Writer:
         message += ", ".join([str(meter) for meter in meters])
         self._loggers[self._mode].debug(message)
 
-    def log_config(self, **kwargs) -> None:
+    def log_config(self, kwargs) -> None:
         """Log the given hyperparameters to a json file."""
         with open(
             self._environment.joinpath("config.json"), "w", encoding="utf-8"
