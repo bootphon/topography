@@ -12,13 +12,12 @@ import torchvision
 from torchvision import transforms
 
 from topography import MetricOutput, TopographicLoss, TopographicModel, models
-from topography.base import MappingDataclass
 from topography.training import Writer, evaluate, train
 from topography.utils import LinearWarmupCosineAnnealingLR
 
 
 @dataclasses.dataclass(frozen=True)
-class CIFARConfig(MappingDataclass):
+class CIFARConfig:
     """Dataclass to store the whole configuration used."""
 
     log: str  # Output directory.
@@ -187,7 +186,7 @@ def main(config: CIFARConfig) -> None:
         def criterion(output, target):
             return MetricOutput(value=cross_entropy(output, target))
 
-    writer.log_config(**config)
+    writer.log_config(dataclasses.asdict(config))
     for _ in range(config.epochs):
         train(model, train_loader, optimizer, criterion, device, writer)
         evaluate(model, test_loader, criterion, device, writer, "val")
@@ -204,8 +203,12 @@ if __name__ == "__main__":
     # changed. They are inside the CIFARConfig for code clarity
     # and to log them with the other hyperparameters.
     parser = argparse.ArgumentParser()
-    parser.add_argument("--log", type=str, help="Output directory.")
-    parser.add_argument("--data", type=str, help="Data directory.")
+    parser.add_argument(
+        "--log", type=str, required=True, help="Output directory."
+    )
+    parser.add_argument(
+        "--data", type=str, required=True, help="Data directory."
+    )
     parser.add_argument("--seed", default=0, type=int, help="Random seed.")
     parser.add_argument(
         "--model", default="resnet18", type=str, help="Model to use."
