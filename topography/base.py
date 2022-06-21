@@ -1,24 +1,12 @@
 """Base types and dataclasses."""
 import dataclasses
-from collections.abc import Mapping
 from typing import Callable, Dict, OrderedDict, Union
 
 import torch
 
 
-class MappingDataclass(Mapping):
-    def __len__(self):
-        return len(dataclasses.asdict(self))
-
-    def __getitem__(self, item):
-        return dataclasses.asdict(self)[item]
-
-    def __iter__(self):
-        return iter(dataclasses.asdict(self))
-
-
 @dataclasses.dataclass
-class MetricOutput(MappingDataclass):
+class MetricOutput:
     """Output of a Metric. Used to store extra information other
     than the main value.
     """
