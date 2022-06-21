@@ -12,6 +12,7 @@ def hypercube(
     dimension: int,
     lower_bound: float = 0,
     upper_bound: float = 1,
+    integer_positions: bool = False,
 ) -> torch.Tensor:
     """Creates `num` positions in a cube of `dimension` dimensions.
     If there exists an integer `num_axis` such that
@@ -32,6 +33,10 @@ def hypercube(
         Lower bound of each coordinate in the cube, by default 0.
     upper_bound : float, optional
         Higher bound of each coordinate in the cube, by default 1.
+    integer_positions: bool, optional
+        Whether to use integer positions instead of specifying
+        the lower and upper bounds of each coordinate. If True,
+        `lower_bound` and `upper_bound` are ignored, by default False.
 
     Returns
     -------
@@ -39,10 +44,13 @@ def hypercube(
         Tensor of positions, of shape (`num_points`, `dimension`).
     """
     num_axis = int(math.ceil(num_points ** (1 / dimension)))
-    coords = [
-        torch.linspace(lower_bound, upper_bound, num_axis)
-        for _ in range(dimension)
-    ]
+    if integer_positions:
+        coords = [torch.arange(0, num_axis) for _ in range(dimension)]
+    else:
+        coords = [
+            torch.linspace(lower_bound, upper_bound, num_axis)
+            for _ in range(dimension)
+        ]
     return (
         torch.cat(torch.meshgrid(*coords, indexing="xy"))
         .reshape(dimension, -1)
