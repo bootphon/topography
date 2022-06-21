@@ -28,7 +28,7 @@ def test_resnet_standard():
         optimizer, warmup_epochs=1, max_epochs=epochs
     )
     writer = Writer(temp_dir.name)
-    writer.log_hparams(lr=lr, epochs=epochs)
+    writer.log_config(lr=lr, epochs=epochs)
     data = torch.randn([num_samples] + shape)
     targets = torch.randint(cifar_classes, [num_samples])
     dataset = TensorDataset(data, targets)
@@ -82,7 +82,7 @@ def test_resnet_prior():
         optimizer, warmup_epochs=1, max_epochs=epochs
     )
     writer = Writer(temp_dir.name)
-    writer.log_hparams(lr=lr, epochs=epochs)
+    writer.log_config(lr=lr, epochs=epochs)
     data = torch.randn([num_samples] + shape)
     targets = torch.randint(cifar_classes, [num_samples])
     dataset = TensorDataset(data, targets)

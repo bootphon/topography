@@ -3,14 +3,42 @@ checkpoints.
 """
 import json
 import socket
+import subprocess
+import uuid
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from topography.utils import AverageMeter, get_logger
+
+_COMMANDS_STDOUT = (
+    ("git log", "commit_history.log"),
+    ("conda env export", "env_with_builds.yml"),
+    ("conda env export --no-builds", "env_no_builds.yml"),
+)
+_COMMANDS_WRITE = (("git format-patch --root -o {}", "patches"),)
+
+
+class CommandError(Exception):
+    """Invalid command"""
+
+
+def _exec_save_command(cmd: str, path: Optional[Path] = None) -> None:
+    try:
+        out = subprocess.check_output(cmd.split())
+    except subprocess.CalledProcessError or FileNotFoundError as e:
+        raise CommandError(str(e))
+    except PermissionError as e:
+        print(f"Command {cmd} failed due to a permission error: {str(e)}")
+        return
+    if path is not None:
+        encoding = "utf-8"
+        with open(path, "w", encoding=encoding) as file:
+            file.write(out.decode(encoding))
 
 
 class Writer:
@@ -37,14 +65,24 @@ class Writer:
         fmt : str, optional
             String formatter used in logging, by default ':.3f'.
         """
-        time = datetime.now().strftime("%b%d_%H-%M-%S")
-        self.root = Path(log_dir).joinpath(f"{time}_{socket.gethostname()}")
+        self._start_time = datetime.now()
+        self.root = (
+            Path(log_dir)
+            .joinpath(
+                f"{self._start_time.strftime('%b%d_%H-%M-%S')}"
+                f"_{socket.gethostname()}_{uuid.uuid4()}"
+            )
+            .resolve()
+        )
         self.fmt = fmt
         self.tensorboard = SummaryWriter(self.root.joinpath("tensorboard"))
         self._checkpoints = self.root.joinpath("checkpoints")
+        self._environment = self.root.joinpath("environment")
 
         self.root.mkdir(parents=True, exist_ok=True)
         self._checkpoints.mkdir(exist_ok=True)
+        self._environment.mkdir(exist_ok=True)
+
         self._summary_logger = get_logger(
             "summary", self.root.joinpath("summary.log")
         )
@@ -53,6 +91,12 @@ class Writer:
         self._loggers = {}
         self._epochs = {}
         self._to_remove = "extras"
+
+        self._summary_logger.info(f"Start on {self._start_time}.")
+        for cmd, path in _COMMANDS_STDOUT:
+            _exec_save_command(cmd, self._environment.joinpath(path))
+        for cmd, path in _COMMANDS_WRITE:
+            _exec_save_command(cmd.format(self._environment.joinpath(path)))
 
     def __getitem__(self, metric: str) -> AverageMeter:
         """Return the meter associated for the given `metric`
@@ -156,10 +200,10 @@ class Writer:
         message += ", ".join([str(meter) for meter in meters])
         self._loggers[self._mode].debug(message)
 
-    def log_hparams(self, **kwargs) -> None:
+    def log_config(self, **kwargs) -> None:
         """Log the given hyperparameters to a json file."""
         with open(
-            self.root.joinpath("hparams.json"), "w", encoding="utf-8"
+            self._environment.joinpath("config.json"), "w", encoding="utf-8"
         ) as file:
             json.dump(kwargs, file, indent=2)
 
@@ -211,4 +255,7 @@ class Writer:
 
     def close(self) -> None:
         """Close the TensorBoard writer."""
+        end = datetime.now()
+        self._summary_logger.info(f"Ended on {end}.")
+        self._summary_logger.info(f"Lasted for {end - self._start_time}.")
         self.tensorboard.close()
