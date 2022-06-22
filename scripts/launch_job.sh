@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-#SBATCH --output=job_%A_%j.out
-#SBATCH --error=job_%A_%j.err
+#SBATCH --output=$WORK/logs/%x_%j.out
+#SBATCH --error=$WORK/logs/%x_%j.err
 #SBATCH --time=03:00:00
 
 set -e # fail fully on first line failure
