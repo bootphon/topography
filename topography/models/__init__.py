@@ -1,4 +1,4 @@
 """PyTorch models"""
-from topography.models.vision import alexnet, resnet18, vgg16_bn
+from topography.models.vision import resnet18, vgg16_bn
 
-__all__ = ["alexnet", "resnet18", "vgg16_bn"]
+__all__ = ["resnet18", "vgg16_bn"]
