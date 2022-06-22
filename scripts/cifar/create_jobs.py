@@ -49,6 +49,6 @@ if __name__ == "__main__":
             file.write(
                 f"python {script} --log {logdir.joinpath(path)}"
                 f" --data {datadir} --seed {SEED} --model {model}"
-                f" --num_classes {num_classes} --topographic"
+                f" --num_classes {num_classes} --topographic --norm {norm}"
                 f" --lambd {lambd} --dimension {dim}\n"
             )
