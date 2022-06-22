@@ -181,12 +181,12 @@ def main(config: CIFARConfig) -> None:
     writer.log_config(dataclasses.asdict(config))
     for _ in range(config.epochs):
         train(model, train_loader, optimizer, criterion, device, writer)
-        evaluate(model, test_loader, criterion, device, writer, "val")
+        evaluate(model, test_loader, criterion, device, writer, mode="val")
         scheduler.step()
         writer.save(
             "val", "acc", model=model, optimizer=optimizer, scheduler=scheduler
         )
-    evaluate(model, test_loader, criterion, device, writer, "test")
+    evaluate(model, test_loader, criterion, device, writer, mode="test")
     writer.close()
 
 
