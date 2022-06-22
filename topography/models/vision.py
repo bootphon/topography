@@ -52,15 +52,3 @@ def vgg16_bn(num_classes: int = 10, **kwargs):
         VGG16 instance with batch normalization.
     """
     return models.vgg16_bn(pretrained=False, num_classes=num_classes, **kwargs)
-
-
-def alexnet(num_classes: int = 10, dropout: float = 0.5):
-    """Builds an AlexNet. Same function as in torchvision.models,
-    but it does not use weights from pretrained models.
-
-    Returns
-    -------
-    AlexNet
-        AlexNet instance.
-    """
-    return models.AlexNet(num_classes=num_classes, dropout=dropout)
