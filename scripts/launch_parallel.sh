@@ -1,6 +1,6 @@
 #!/bin/bash
 
-jobs_in_parallel=16
+jobs_in_parallel=64
 
 if [ ! -f "$1" ]
 then
