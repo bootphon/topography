@@ -152,7 +152,12 @@ class Writer:
         return f"{self._mode}, epoch {self._epochs[self._mode]}"
 
     def save(
-        self, mode: str, metric: str, maximize: bool = True, **kwargs
+        self,
+        mode: str,
+        metric: str,
+        maximize: bool = True,
+        clean: bool = True,
+        **kwargs,
     ) -> None:
         """Save checkpoints if for the given `mode`, the score for `metric`
         is the best at the current epoch.
@@ -169,6 +174,9 @@ class Writer:
             Whether we look to maximize or minimize this metric, by default
             True. Most likely will be True if `metric` is "acc", and
             False if `metric` is "loss".
+        clean : bool, optional
+            Whether to clean the checkpoints directory and delete previous
+            checkpoints if the best score is attained. By default True.
         **kwargs:
             Torch objects that we wish to save. Must implement the
             `state_dict` method (ie models, optimizers, schedulers).
@@ -180,6 +188,9 @@ class Writer:
         else:
             cond = all(last_score <= score for score in scores_per_epoch)
         if cond:
+            if clean:
+                for file in self._checkpoints.glob("*"):
+                    file.unlink()
             for k, module in kwargs.items():
                 torch.save(
                     module.state_dict(),
