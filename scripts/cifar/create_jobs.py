@@ -44,7 +44,7 @@ if __name__ == "__main__":
         ):
             path = (
                 f"cifar{num_classes}/{model}/"
-                + f"dimension_{dim}/norm_{norm}/lambda_{lambd}"
+                + f"dimension_{dim}/lambda_{lambd}/norm_{norm}"
             )
             file.write(
                 f"python {script} --log {logdir.joinpath(path)}"
