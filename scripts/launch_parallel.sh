@@ -1,6 +1,6 @@
 #!/bin/bash
 
-jobs_in_parallel=128
+jobs_in_parallel=32
 
 if [ ! -f "$1" ]
 then
@@ -15,7 +15,7 @@ n_lines=$(grep -c '^' "$1")
 job_name=$(basename "$1" .txt)
 
 sbatch --array=1-${n_lines}%${jobs_in_parallel} \
---job-name ${job_name} $(dirname "$0")/launch_job.sh \
 --output=$WORK/logs/%x_%j.out \
---error=$WORK/logs/%x_%j.err \
-"$1"
+--error=$WORK/logs/%x_%j.err  \
+--job-name ${job_name} \
+$(dirname "$0")/launch_job.sh "$1"
