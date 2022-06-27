@@ -213,6 +213,8 @@ class Writer:
 
     def log_config(self, kwargs) -> None:
         """Log the given hyperparameters to a json file."""
+        kwargs.pop("log", None)
+        kwargs["log"] = str(self.root)
         with open(
             self._environment.joinpath("config.json"), "w", encoding="utf-8"
         ) as file:
