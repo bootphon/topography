@@ -21,15 +21,21 @@ if __name__ == "__main__":
         help="Output containing the list of jobs to run.",
         default="./correlation.txt",
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Whether to overwrite existing files or not.",
+    )
     args = parser.parse_args()
 
     experiments = Path(args.experiments).resolve()
     jobs = Path(args.output).resolve()
     script = Path(args.script).resolve()
+    overwrite = " --overwrite" if args.overwrite else ""
     cmds = [
-        f"python {script} --log {path.parent}"
-        for path in experiments.rglob("*")
-        if path.name == "checkpoints" and "base" not in path.parts
+        f"python {script} --log {path.parent}" + overwrite
+        for path in experiments.rglob("checkpoints")
+        if "base" not in path.parts
     ]
 
     with open(jobs, "w", encoding="utf-8") as file:
