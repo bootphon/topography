@@ -235,7 +235,7 @@ class Writer:
             [
                 str(meter)
                 for meter in meters
-                if not meter.name.startswith("extras")
+                if not meter.name.startswith(self._to_remove)
             ]
         )
 
