@@ -1,3 +1,6 @@
+"""Test of the hypercube function that is used to to assign positions
+to the channels.
+"""
 import pytest
 import torch
 

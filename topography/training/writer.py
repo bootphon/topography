@@ -6,7 +6,6 @@ import socket
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
-from typing import List
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -53,6 +52,7 @@ class Writer:
         self._meters = {}
         self._loggers = {}
         self._epochs = {}
+        self._to_remove = "extras"
 
     def __getitem__(self, metric: str) -> AverageMeter:
         """Return the meter associated for the given `metric`
@@ -62,16 +62,20 @@ class Writer:
         ----------
         metric : str
             Metric to get. Has to have been given by `set`
-            for this current epoch and mode.
+            for this current epoch and mode, else an empty AverageMeter
+            will be created.
 
         Returns
         -------
         AverageMeter
             Associated meter.
         """
-        return self._meters[self._mode][self._epochs[self._mode]][metric]
+        current_meters = self._meters[self._mode][self._epochs[self._mode]]
+        if metric not in current_meters:
+            current_meters[metric] = AverageMeter(metric, self.fmt)
+        return current_meters[metric]
 
-    def set(self, mode: str, metrics: List[str]) -> None:
+    def next_epoch(self, mode: str) -> None:
         """Start a new epoch with the given `mode`, will track
         the given `metrics`. If the `mode` has not been seen yet,
         it will be the first epoch.
@@ -80,8 +84,6 @@ class Writer:
         ----------
         mode : str
             Current mode, for example "train", "val", or "test".
-        metrics : List[str]
-            List of metrics to follow for this mode and the current epoch.
         """
         self._mode = mode
         if mode not in self._meters:
@@ -92,13 +94,11 @@ class Writer:
             self._epochs[mode] = 1
         else:
             self._epochs[mode] += 1
-        self._meters[mode][self._epochs[mode]] = OrderedDict(
-            [(m, AverageMeter(m, self.fmt)) for m in metrics]
-        )
+        self._meters[mode][self._epochs[mode]] = OrderedDict()
 
     def desc(self) -> str:
         """String indicating the current mode and epoch.
-        Used in tqdm progress bar?
+        Used in tqdm progress bar.
 
         Returns
         -------
@@ -126,7 +126,7 @@ class Writer:
             True. Most likely will be True if `metric` is "acc", and
             False if `metric` is "loss".
         **kwargs:
-            Torch objects that we which to save. Must implement the
+            Torch objects that we wish to save. Must implement the
             `state_dict` method (ie models, optimizers, schedulers).
         """
         scores_per_epoch = [m[metric].avg for m in self._meters[mode].values()]
@@ -174,7 +174,13 @@ class Writer:
             Postfix string. Used in tqdm progress bar.
         """
         meters = self._meters[self._mode][self._epochs[self._mode]].values()
-        return ", ".join([str(meter) for meter in meters])
+        return ", ".join(
+            [
+                str(meter)
+                for meter in meters
+                if not meter.name.startswith("extras")
+            ]
+        )
 
     def summary(self) -> str:
         """Summary of all tracked metrics on the current epoch and mode.
@@ -193,7 +199,13 @@ class Writer:
                 self._epochs[self._mode],
             )
         out = self.desc() + ", "
-        out += ", ".join([meter.summary() for meter in meters])
+        out += ", ".join(
+            [
+                meter.summary()
+                for meter in meters
+                if not meter.name.startswith(self._to_remove)
+            ]
+        )
         self._summary_logger.info(out)
         return out
 

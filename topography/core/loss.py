@@ -1,11 +1,42 @@
 """"Provides the topographic loss, following PyTorch API conventions."""
-import typing
 from collections import OrderedDict
 
 import torch
 from torch.nn.modules.loss import _Loss
 
-TensorDict = typing.OrderedDict[str, torch.Tensor]
+from topography.base import MetricOutput, TensorDict
+
+
+def _reduce(inp: torch.Tensor, reduction: str) -> torch.Tensor:
+    """Reduce the input Tensor with the `reduction` method. See
+    TopographicLoss for details on `reduction`.
+
+    Parameters
+    ----------
+    inp : torch.Tensor
+        Input tensor.
+    reduction : str
+        Reduction method.
+
+    Returns
+    -------
+    torch.Tensor
+        Reduced tensor.
+
+    Raises
+    ------
+    ValueError
+        If `reduction` is not a valid value for reduction.
+    """
+    if reduction == "none":
+        output = inp
+    elif reduction == "sum":
+        output = inp.sum()
+    elif reduction == "mean":
+        output = inp.mean()
+    else:
+        raise ValueError(f"{reduction} is not a valid value for reduction")
+    return output
 
 
 def _channel_correlation(activation: torch.Tensor, eps: float) -> torch.Tensor:
@@ -43,7 +74,7 @@ def topographic_loss(
     *,
     eps: float = 1e-8,
     reduction: str = "mean",
-) -> torch.Tensor:
+) -> MetricOutput:
     """Functional implementation of the topographic loss.
 
     Parameters
@@ -66,20 +97,16 @@ def topographic_loss(
 
     Returns
     -------
-    torch.Tensor
+    MetricOutput
         Computed topographic loss.
 
     Raises
     ------
     ValueError
-        If the reduction method is not `none`, `sum`, `mean` or
-        `debug`.
+        If the reduction method is not `none`, `sum` or `mean`.
     """
-    if reduction not in ["none", "mean", "sum", "debug"]:
-        raise ValueError(
-            f"Reduction method '{reduction}' is not available."
-            "Must be either 'none', 'sum', 'mean' or 'debug'."
-        )
+    if reduction not in ["none", "mean", "sum"]:
+        raise ValueError(f"{reduction} is not a valid value for reduction")
     first_key = next(iter(activations))
     batch_size = activations[first_key].shape[0]
     loss = OrderedDict()
@@ -90,14 +117,8 @@ def topographic_loss(
         layer_loss = ((correlation - inv_dist) ** 2).sum((1, 2))
         layer_loss /= correlation.shape[1] * (correlation.shape[1] - 1) // 2
         total_loss += layer_loss
-        loss[name] = layer_loss
-    if reduction == "none":
-        return total_loss
-    if reduction == "sum":
-        return total_loss.sum()
-    if reduction == "mean":
-        return total_loss.mean()
-    return loss
+        loss[f"topo-loss/{name}"] = _reduce(layer_loss, reduction).item()
+    return MetricOutput(value=_reduce(total_loss, reduction), extras=loss)
 
 
 class TopographicLoss(_Loss):
@@ -108,14 +129,19 @@ class TopographicLoss(_Loss):
     __constants__ = ["eps", "reduction"]
     eps: float
 
-    def __init__(self, *, eps: float = 1e-8, reduction: str = "mean") -> None:
+    def __init__(
+        self,
+        *,
+        eps: float = 1e-8,
+        reduction: str = "mean",
+    ) -> None:
         """Instantiates the topographic loss.
 
         Parameters
         ----------
         eps : float, optional
             Small value to avoid division by zero when computing the
-            correlation between channels, by default 1e-8
+            correlation between channels, by default 1e-8.
         reduction : str, optional
             Specifies the reduction to apply to the output:
             `none`, `mean`,`sum` or `debug`. `none`: no reduction will
@@ -129,18 +155,15 @@ class TopographicLoss(_Loss):
             If the reduction method is not `none`, `sum`, `mean` or
            `debug`.
         """
-        if reduction not in ["none", "mean", "sum", "debug"]:
-            raise ValueError(
-                f"Reduction method '{reduction}' is not available."
-                "Must be either 'none', 'sum', 'mean' or 'debug'."
-            )
+        if reduction not in ["none", "mean", "sum"]:
+            raise ValueError(f"{reduction} is not a valid value for reduction")
 
         super().__init__(None, None, reduction)
         self.eps = eps
 
     def forward(
         self, activations: TensorDict, inverse_distances: TensorDict
-    ) -> torch.Tensor:
+    ) -> MetricOutput:
         """Computes the topographic loss for a given topographic model.
 
         Parameters
@@ -153,7 +176,7 @@ class TopographicLoss(_Loss):
 
         Returns
         -------
-        torch.Tensor
+        MetricOutput
             Computed topographic loss.
         """
         return topographic_loss(

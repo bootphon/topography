@@ -1,7 +1,7 @@
 """Provides training and evaluation loops.
 """
 import time
-from typing import Callable
+from typing import Callable, Union
 
 import torch
 from torch import nn
@@ -9,35 +9,42 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
+from topography.base import Metric, MetricOutput
 from topography.training.writer import Writer
 
+PyTorchLoss = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
-def accuracy(output: torch.Tensor, labels: torch.Tensor) -> float:
+
+def accuracy(output: torch.Tensor, labels: torch.Tensor) -> MetricOutput:
     """Compute batch accuracy.
 
     Parameters
     ----------
     output : torch.Tensor
-        Raw outputs of the network.
+        Logits outputs of the network.
     labels : torch.Tensor
         Target labels.
 
     Returns
     -------
-    float
+    MetricOutput
         Accuracy on the given batch.
     """
     _, predicted = torch.max(output.data, 1)
-    return float((predicted == labels).sum()) / float(output.size(0))
+    return MetricOutput(
+        value=float((predicted == labels).sum()) / float(output.size(0))
+    )
 
 
 def train(
     model: nn.Module,
     dataloader: DataLoader,
     optimizer: Optimizer,
-    criterion: Callable,
+    criterion: Union[Metric, PyTorchLoss],
     device: torch.device,
     writer: Writer,
+    *,
+    is_pytorch_loss: bool = False,
 ) -> None:
     """Training loop.
 
@@ -49,16 +56,26 @@ def train(
         Dataloader.
     optimizer : Optimizer
         Optimizer.
-    criterion : Callable
+    criterion : Union[Metric, PyTorchLoss]
         Loss function.
     device : torch.device
         Device, either CPU or CUDA GPU.
     writer : Writer
         Writing utility.
+    is_pytorch_loss: bool
+        Has to be True if the given `criterion` is a loss from PyTorch.
+        Else, it is considered to be a Metric and to return
+        a MetricOutput with two fields: value and extras.
     """
     model.train()
-    writer.set("train", ["loss", "acc", "batch-time", "load-time"])
+    writer.next_epoch("train")
     end = time.time()
+
+    if is_pytorch_loss:
+        old_criterion = criterion
+        criterion = lambda output, target: MetricOutput(
+            value=old_criterion(output, target)
+        )
 
     with tqdm(total=len(dataloader), desc=writer.desc()) as pbar:
         for batch_idx, (data, target) in enumerate(dataloader):
@@ -72,12 +89,17 @@ def train(
 
             # Compute gradient and do optimizer step
             optimizer.zero_grad()
-            loss.backward()
+            loss.value.backward()
             optimizer.step()
 
+            # Compute accuracy
+            acc = accuracy(output, target)
+
             # Measure accuracy and record loss
-            writer["loss"].update(loss.item(), data.size(0))
-            writer["acc"].update(accuracy(output, target), data.size(0))
+            writer["loss"].update(loss.value.item(), data.size(0))
+            writer["acc"].update(acc.value, data.size(0))
+            for name, value in {**loss.extras, **acc.extras}.items():
+                writer[f"extras/{name}"].update(value, data.size(0))
 
             # Measure elapsed time
             writer["batch-time"].update(time.time() - end)
@@ -95,7 +117,9 @@ def evaluate(
     criterion: Callable,
     device: torch.device,
     writer: Writer,
+    *,
     mode: str = "test",
+    is_pytorch_loss: bool = False,
 ) -> None:
     """Testing or validation loop.
 
@@ -113,17 +137,29 @@ def evaluate(
         Writing utility.
     mode : str
         Evaluation mode ('test' or 'val'), by default 'test'.
+    is_pytorch_loss: bool
+        Has to be True if the given `criterion` is a loss from PyTorch.
+        Else, it is considered to be a Metric and to return
+        a MetricOutput with two fields: value and extras.
     """
     model.eval()
-    writer.set(mode, ["loss", "acc"])
+    writer.next_epoch(mode)
+
+    if is_pytorch_loss:
+        old_criterion = criterion
+        criterion = lambda output, target: MetricOutput(
+            value=old_criterion(output, target)
+        )
 
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(dataloader):
             data, target = data.to(device), target.to(device)
             output = model(data)
-            loss = criterion(output, target).item()
+            loss = criterion(output, target)
             acc = accuracy(output, target)
-            writer["loss"].update(loss, data.size(0))
-            writer["acc"].update(acc, data.size(0))
+            writer["loss"].update(loss.value.item(), data.size(0))
+            writer["acc"].update(acc.value, data.size(0))
+            for name, value in {**loss.extras, **acc.extras}.items():
+                writer[f"extras/{name}"].update(value, data.size(0))
             writer.log(batch_idx)
         print(writer.summary())
