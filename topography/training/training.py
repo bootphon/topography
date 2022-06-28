@@ -72,10 +72,12 @@ def train(
     end = time.time()
 
     if is_pytorch_loss:
-        old_criterion = criterion
-        criterion = lambda output, target: MetricOutput(
-            value=old_criterion(output, target)
-        )
+
+        def metric_criterion(output, target):
+            return MetricOutput(value=criterion(output, target))
+
+    else:
+        metric_criterion = criterion
 
     with tqdm(total=len(dataloader), desc=writer.desc()) as pbar:
         for batch_idx, (data, target) in enumerate(dataloader):
@@ -85,7 +87,7 @@ def train(
 
             # Compute output
             output = model(data)
-            loss = criterion(output, target)
+            loss = metric_criterion(output, target)
 
             # Compute gradient and do optimizer step
             optimizer.zero_grad()
@@ -146,16 +148,18 @@ def evaluate(
     writer.next_epoch(mode)
 
     if is_pytorch_loss:
-        old_criterion = criterion
-        criterion = lambda output, target: MetricOutput(
-            value=old_criterion(output, target)
-        )
+
+        def metric_criterion(output, target):
+            return MetricOutput(value=criterion(output, target))
+
+    else:
+        metric_criterion = criterion
 
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(dataloader):
             data, target = data.to(device), target.to(device)
             output = model(data)
-            loss = criterion(output, target)
+            loss = metric_criterion(output, target)
             acc = accuracy(output, target)
             writer["loss"].update(loss.value.item(), data.size(0))
             writer["acc"].update(acc.value, data.size(0))
