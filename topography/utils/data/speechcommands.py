@@ -143,7 +143,7 @@ class SpeechCommands(Dataset):
                 idx, *other = line.split(",")
                 self.metadata[int(idx)] = Metadata.from_csv(idx, *other)
         self._path = self.root.joinpath(self._subset)
-        self._n_digits = len(str(len(self._metadata)))
+        self._n_digits = len(str(len(self.metadata)))
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, int]:
         metadata = self.metadata[index]
