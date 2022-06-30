@@ -184,8 +184,8 @@ def _default_transform(
     return nn.Sequential(
         transforms.MelSpectrogram(
             sample_rate=sample_rate,
-            n_fft=window_duration * sample_rate,
-            hop_length=hop_duration * sample_rate,
+            n_fft=int(window_duration * sample_rate),
+            hop_length=int(hop_duration * sample_rate),
             n_mels=n_mels,
         ),
         transforms.AmplitudeToDB(),
