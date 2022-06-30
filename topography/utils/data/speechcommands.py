@@ -65,7 +65,7 @@ class Metadata(NamedTuple):
     @classmethod
     def from_csv(cls, *row: str):
         """Create a metadata entry from a CSV row."""
-        return cls(int(row[0]), int(row[1]), row[2], row[3], row[4])
+        return cls(int(row[0]), int(row[1]), row[2], row[3], int(row[4]))
 
     def __str__(self) -> str:
         """String representation, used for CSV export."""
@@ -253,7 +253,7 @@ class SpeechCommands(Dataset):
         with open(
             self.root.joinpath(f"{subset}.csv"), "r", encoding="utf-8"
         ) as file:
-            for line in file.readlines():
+            for line in file.read().splitlines():
                 idx, *other = line.split(",")
                 self.metadata[int(idx)] = Metadata.from_csv(idx, *other)
 
