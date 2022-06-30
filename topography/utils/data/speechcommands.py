@@ -58,14 +58,14 @@ class Metadata(NamedTuple):
 
     idx: int
     sample_rate: int
-    label: int
+    label: str
     speaker_id: str
     utterance_number: int
 
     @classmethod
     def from_csv(cls, *row: str):
         """Create a metadata entry from a CSV row."""
-        return cls(int(row[0]), int(row[1]), int(row[2]), row[3], row[4])
+        return cls(int(row[0]), int(row[1]), row[2], row[3], row[4])
 
     def __str__(self) -> str:
         """String representation, used for CSV export."""
