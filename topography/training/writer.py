@@ -1,7 +1,9 @@
 """Writing utility. Handle logging, writing to TensorBoard and saving
 checkpoints.
 """
+import inspect
 import json
+import shutil
 import socket
 import subprocess
 import uuid
@@ -13,32 +15,27 @@ from typing import Optional
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
+import topography
 from topography.utils import AverageMeter, get_logger
 
 _COMMANDS_STDOUT = (
-    ("git log", "commit_history.log"),
     ("conda env export", "env_with_builds.yml"),
     ("conda env export --no-builds", "env_no_builds.yml"),
 )
-_COMMANDS_WRITE = (("git format-patch --root -o {}", "patches"),)
 
 
-class CommandError(Exception):
-    """Invalid command"""
+def _copy_git_root(path: Path):
+    git_path = Path(inspect.getfile(topography)).parent.parent.joinpath(".git")
+    if git_path.exists():
+        shutil.copytree(git_path, path)
 
 
-def _exec_save_command(cmd: str, path: Optional[Path] = None) -> None:
-    try:
-        out = subprocess.check_output(cmd.split())
-    except subprocess.CalledProcessError or FileNotFoundError as e:
-        raise CommandError(str(e))
-    except PermissionError as e:
-        print(f"Command {cmd} failed due to a permission error: {str(e)}")
-        return
-    if path is not None:
-        encoding = "utf-8"
-        with open(path, "w", encoding=encoding) as file:
-            file.write(out.decode(encoding))
+def _exec_command(
+    cmd: str, path: Optional[Path] = None, encoding: str = "utf-8"
+) -> None:
+    out = subprocess.check_output(cmd.split())
+    with open(path, "w", encoding=encoding) as file:
+        file.write(out.decode(encoding))
 
 
 class Writer:
@@ -54,7 +51,7 @@ class Writer:
 
             log_dir/
             |--checkpoints/
-            |
+            |--environment/
             |--tensorboard/
             |
             |--summary.log
@@ -94,9 +91,8 @@ class Writer:
 
         self._summary_logger.info(f"Start on {self._start_time}.")
         for cmd, path in _COMMANDS_STDOUT:
-            _exec_save_command(cmd, self._environment.joinpath(path))
-        for cmd, path in _COMMANDS_WRITE:
-            _exec_save_command(cmd.format(self._environment.joinpath(path)))
+            _exec_command(cmd, self._environment.joinpath(path))
+        _copy_git_root(self._environment.joinpath("git_directory"))
 
     def __getitem__(self, metric: str) -> AverageMeter:
         """Return the meter associated for the given `metric`
