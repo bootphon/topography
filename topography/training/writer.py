@@ -1,7 +1,9 @@
 """Writing utility. Handle logging, writing to TensorBoard and saving
 checkpoints.
 """
+import inspect
 import json
+import shutil
 import socket
 import subprocess
 import uuid
@@ -13,32 +15,46 @@ from typing import Optional
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
+import topography
 from topography.utils import AverageMeter, get_logger
 
 _COMMANDS_STDOUT = (
-    ("git log", "commit_history.log"),
     ("conda env export", "env_with_builds.yml"),
     ("conda env export --no-builds", "env_no_builds.yml"),
 )
-_COMMANDS_WRITE = (("git format-patch --root -o {}", "patches"),)
 
 
-class CommandError(Exception):
-    """Invalid command"""
+def _copy_git_directory(path: Path) -> None:
+    """Copy the git folder associated to this project to `path`.
+    Used for reproducibility
+
+    Parameters
+    ----------
+    path : Path
+        Output path.
+    """
+    git_path = Path(inspect.getfile(topography)).parent.parent.joinpath(".git")
+    if git_path.exists():
+        shutil.copytree(git_path, path)
 
 
-def _exec_save_command(cmd: str, path: Optional[Path] = None) -> None:
+def _exec_command(cmd: str, path: Optional[Path] = None) -> None:
+    """Run a given command and writes its output to `path`.
+
+    Parameters
+    ----------
+    cmd : str
+        Command to run
+    path : Optional[Path], optional
+        Path where the output is written, by default None
+    """
     try:
         out = subprocess.check_output(cmd.split())
-    except subprocess.CalledProcessError or FileNotFoundError as e:
-        raise CommandError(str(e))
-    except PermissionError as e:
-        print(f"Command {cmd} failed due to a permission error: {str(e)}")
+    except subprocess.CalledProcessError as error:  # pragma: no cover
+        print(f"Command {cmd} failed: {str(error)}")
         return
-    if path is not None:
-        encoding = "utf-8"
-        with open(path, "w", encoding=encoding) as file:
-            file.write(out.decode(encoding))
+    with open(path, "w", encoding="utf-8") as file:
+        file.write(out.decode("utf-8"))
 
 
 class Writer:
@@ -54,14 +70,13 @@ class Writer:
 
             log_dir/
             |--checkpoints/
-            |
+            |--environment/
             |--tensorboard/
             |
             |--summary.log
             |--train.log
             |--val.log
             |--test.log
-
         fmt : str, optional
             String formatter used in logging, by default ':.3f'.
         """
@@ -92,11 +107,10 @@ class Writer:
         self._epochs = {}
         self._to_remove = "extras"
 
-        self._summary_logger.info(f"Start on {self._start_time}.")
+        self._summary_logger.info("Start on %s.", self._start_time)
         for cmd, path in _COMMANDS_STDOUT:
-            _exec_save_command(cmd, self._environment.joinpath(path))
-        for cmd, path in _COMMANDS_WRITE:
-            _exec_save_command(cmd.format(self._environment.joinpath(path)))
+            _exec_command(cmd, self._environment.joinpath(path))
+        _copy_git_directory(self._environment.joinpath("git_directory"))
 
     def __getitem__(self, metric: str) -> AverageMeter:
         """Return the meter associated for the given `metric`
@@ -152,7 +166,12 @@ class Writer:
         return f"{self._mode}, epoch {self._epochs[self._mode]}"
 
     def save(
-        self, mode: str, metric: str, maximize: bool = True, **kwargs
+        self,
+        mode: str,
+        metric: str,
+        maximize: bool = True,
+        clean: bool = True,
+        **kwargs,
     ) -> None:
         """Save checkpoints if for the given `mode`, the score for `metric`
         is the best at the current epoch.
@@ -169,6 +188,9 @@ class Writer:
             Whether we look to maximize or minimize this metric, by default
             True. Most likely will be True if `metric` is "acc", and
             False if `metric` is "loss".
+        clean : bool, optional
+            Whether to clean the checkpoints directory and delete previous
+            checkpoints if the best score is attained. By default True.
         **kwargs:
             Torch objects that we wish to save. Must implement the
             `state_dict` method (ie models, optimizers, schedulers).
@@ -180,6 +202,9 @@ class Writer:
         else:
             cond = all(last_score <= score for score in scores_per_epoch)
         if cond:
+            if clean:
+                for file in self._checkpoints.glob("*"):
+                    file.unlink()
             for k, module in kwargs.items():
                 torch.save(
                     module.state_dict(),
@@ -202,6 +227,8 @@ class Writer:
 
     def log_config(self, kwargs) -> None:
         """Log the given hyperparameters to a json file."""
+        kwargs.pop("log", None)
+        kwargs["log"] = str(self.root)
         with open(
             self._environment.joinpath("config.json"), "w", encoding="utf-8"
         ) as file:
@@ -222,7 +249,7 @@ class Writer:
             [
                 str(meter)
                 for meter in meters
-                if not meter.name.startswith("extras")
+                if not meter.name.startswith(self._to_remove)
             ]
         )
 
@@ -256,6 +283,6 @@ class Writer:
     def close(self) -> None:
         """Close the TensorBoard writer."""
         end = datetime.now()
-        self._summary_logger.info(f"Ended on {end}.")
-        self._summary_logger.info(f"Lasted for {end - self._start_time}.")
+        self._summary_logger.info("Ended on %s.", end)
+        self._summary_logger.info("Lasted for %s.", end - self._start_time)
         self.tensorboard.close()

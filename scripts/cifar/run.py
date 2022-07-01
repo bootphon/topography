@@ -34,7 +34,8 @@ class CIFARConfig:
 
     topographic: bool  # Whether to train a topographic model or not.
     lambd: Optional[float] = None  # Weight of the topographic loss.
-    dimension: int = 2  # Dimension of the positions of the channels.
+    dimension: Optional[int] = None  # Dimension of the positions.
+    norm: Optional[str] = None  # Which norm between positions to use.
 
     padding: int = 4  # Padding in random crop.
     normalization: List = dataclasses.field(
@@ -63,9 +64,12 @@ class CIFARConfig:
                 f"Invalid number of classes '{self.num_classes}'"
                 "in CIFAR. Must be either 10 or 100."
             )
-        if self.topographic and self.lambd is None:
+        if self.topographic and (
+            self.lambd is None or self.norm is None or self.dimension is None
+        ):
             raise ValueError(
-                "If the model is set to be topographic, lambd must be provided."
+                "If the model is set to be topographic, lambd, dimension and "
+                + "norm must be provided."
             )
         try:
             getattr(models, self.model)
@@ -85,34 +89,20 @@ def main(config: CIFARConfig) -> None:
     """
     writer = Writer(config.log)
 
-    resize = transforms.Resize(64)
-    common_train = transforms.Compose(
+    train_transform = transforms.Compose(
         [
+            transforms.RandomCrop(32, padding=config.padding),
             transforms.RandomHorizontalFlip(config.horizontal_flip),
             transforms.ToTensor(),
             transforms.Normalize(*config.normalization),
         ]
     )
-    common_test = transforms.Compose(
+    test_transform = transforms.Compose(
         [
             transforms.ToTensor(),
             transforms.Normalize(*config.normalization),
         ]
     )
-    if config.model == "alexnet":
-        train_transform = transforms.Compose(
-            [
-                resize,
-                transforms.RandomCrop(64, padding=2 * config.padding),
-                common_train,
-            ]
-        )
-        test_transform = transforms.Compose([resize, common_test])
-    else:
-        train_transform = transforms.Compose(
-            [transforms.RandomCrop(32, padding=config.padding), common_train]
-        )
-        test_transform = common_test
 
     dataset = (
         torchvision.datasets.CIFAR10
@@ -149,7 +139,9 @@ def main(config: CIFARConfig) -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     base_model = getattr(models, config.model)(num_classes=config.num_classes)
     model = (
-        TopographicModel(base_model, dimension=config.dimension).to(device)
+        TopographicModel(
+            base_model, dimension=config.dimension, norm=config.norm
+        ).to(device)
         if config.topographic
         else base_model.to(device)
     )
@@ -189,12 +181,12 @@ def main(config: CIFARConfig) -> None:
     writer.log_config(dataclasses.asdict(config))
     for _ in range(config.epochs):
         train(model, train_loader, optimizer, criterion, device, writer)
-        evaluate(model, test_loader, criterion, device, writer, "val")
+        evaluate(model, test_loader, criterion, device, writer, mode="val")
         scheduler.step()
         writer.save(
             "val", "acc", model=model, optimizer=optimizer, scheduler=scheduler
         )
-    evaluate(model, test_loader, criterion, device, writer, "test")
+    evaluate(model, test_loader, criterion, device, writer, mode="test")
     writer.close()
 
 
@@ -246,6 +238,11 @@ if __name__ == "__main__":
         "--dimension",
         type=int,
         help="Dimension of the positions of the channels.",
+    )
+    parser.add_argument(
+        "--norm",
+        type=str,
+        help="Which norm between positions to use.",
     )
 
     args = parser.parse_args()
