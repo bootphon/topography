@@ -24,18 +24,37 @@ _COMMANDS_STDOUT = (
 )
 
 
-def _copy_git_root(path: Path):
+def _copy_git_directory(path: Path) -> None:
+    """Copy the git folder associated to this project to `path`.
+    Used for reproducibility
+
+    Parameters
+    ----------
+    path : Path
+        Output path.
+    """
     git_path = Path(inspect.getfile(topography)).parent.parent.joinpath(".git")
     if git_path.exists():
         shutil.copytree(git_path, path)
 
 
-def _exec_command(
-    cmd: str, path: Optional[Path] = None, encoding: str = "utf-8"
-) -> None:
-    out = subprocess.check_output(cmd.split())
-    with open(path, "w", encoding=encoding) as file:
-        file.write(out.decode(encoding))
+def _exec_command(cmd: str, path: Optional[Path] = None) -> None:
+    """Run a given command and writes its output to `path`.
+
+    Parameters
+    ----------
+    cmd : str
+        Command to run
+    path : Optional[Path], optional
+        Path where the output is written, by default None
+    """
+    try:
+        out = subprocess.check_output(cmd.split())
+    except subprocess.CalledProcessError as error:  # pragma: no cover
+        print(f"Command {cmd} failed: {str(error)}")
+        return
+    with open(path, "w", encoding="utf-8") as file:
+        file.write(out.decode("utf-8"))
 
 
 class Writer:
@@ -58,7 +77,6 @@ class Writer:
             |--train.log
             |--val.log
             |--test.log
-
         fmt : str, optional
             String formatter used in logging, by default ':.3f'.
         """
@@ -89,10 +107,10 @@ class Writer:
         self._epochs = {}
         self._to_remove = "extras"
 
-        self._summary_logger.info(f"Start on {self._start_time}.")
+        self._summary_logger.info("Start on %s.", self._start_time)
         for cmd, path in _COMMANDS_STDOUT:
             _exec_command(cmd, self._environment.joinpath(path))
-        _copy_git_root(self._environment.joinpath("git_directory"))
+        _copy_git_directory(self._environment.joinpath("git_directory"))
 
     def __getitem__(self, metric: str) -> AverageMeter:
         """Return the meter associated for the given `metric`
@@ -265,6 +283,6 @@ class Writer:
     def close(self) -> None:
         """Close the TensorBoard writer."""
         end = datetime.now()
-        self._summary_logger.info(f"Ended on {end}.")
-        self._summary_logger.info(f"Lasted for {end - self._start_time}.")
+        self._summary_logger.info("Ended on %s.", end)
+        self._summary_logger.info("Lasted for %s.", end - self._start_time)
         self.tensorboard.close()
