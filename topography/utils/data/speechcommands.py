@@ -80,7 +80,7 @@ def _build_dataset(
     sample_rate: int,
     download: bool,
     transform: nn.Module,
-) -> None:
+) -> None:  # pragma: no cover
     """Build the processed Speech Commands dataset.
     Samples are padded with zeros for them to last for exactly one second.
 
@@ -239,7 +239,7 @@ class SpeechCommands(Dataset):
         if subset not in ("training", "validation", "testing"):
             raise ValueError(f"Invalid subset {subset}.")
         self.subset = subset
-        if build:
+        if build:  # pragma: no cover
             if transform is None:
                 transform = _default_transform(self.SAMPLE_RATE)
             _build_dataset(
