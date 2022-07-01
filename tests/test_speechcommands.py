@@ -13,6 +13,7 @@ from torchaudio.datasets.speechcommands import FOLDER_IN_ARCHIVE
 from topography.models import speech_vgg
 from topography.training import Writer, evaluate, train
 from topography.training.training import accuracy
+from topography.utils import LinearWarmupCosineAnnealingLR
 from topography.utils.data import SpeechCommands
 from topography.utils.data import speechcommands as spc
 
@@ -71,7 +72,7 @@ def test_speech_vgg():
     root.joinpath("training").mkdir()
 
     sample_rate, duration, num_samples = 16_000, 1, 4
-    lr, epochs = 0.001, 10
+    lr, epochs = 0.001, 30
     num_classes, n_digits = 5, len(str(num_samples))
 
     for idx in range(num_samples):
@@ -82,7 +83,7 @@ def test_speech_vgg():
     stats = {"mean": torch.tensor(0), "std": torch.tensor(1)}
     torch.save(stats, root.joinpath("training_stats.pt"))
 
-    targets = torch.randint(num_classes, [num_samples])
+    targets = torch.arange(num_samples)
     inv_labels = {value: key for key, value in spc._LABELS.items()}
     labels = [inv_labels[target.item()] for target in targets]
     metadata = [
@@ -96,6 +97,9 @@ def test_speech_vgg():
     device = torch.device("cpu")
     model = speech_vgg(num_classes=num_classes)
     optimizer = SGD(model.parameters(), lr=lr)
+    scheduler = LinearWarmupCosineAnnealingLR(
+        optimizer, warmup_epochs=1, max_epochs=epochs
+    )
     writer = Writer(temp_dir.name)
     writer.log_hparams(lr=lr, epochs=epochs)
     dataloader = DataLoader(dataset, batch_size=num_samples, generator=g)
@@ -111,6 +115,7 @@ def test_speech_vgg():
             writer,
             is_pytorch_loss=True,
         )
+        scheduler.step()
     evaluate(
         model,
         dataloader,
