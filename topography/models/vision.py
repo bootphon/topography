@@ -3,7 +3,7 @@ from torch import nn
 from torchvision import models
 
 
-def resnet18(num_classes: int = 10, **kwargs):
+def resnet18(num_classes: int = 10, **kwargs) -> models.ResNet:
     """Constructs a ResNet-18 for CIFAR-10 or CIFAR-100.
     Change the `conv1` layer: the kernel size is reduced from 7 to 3,
     the strides from 2 to 1, and the padding from
@@ -41,14 +41,14 @@ def resnet18(num_classes: int = 10, **kwargs):
     return resnet
 
 
-def vgg16_bn(num_classes: int = 10, **kwargs):
+def vgg16_bn(num_classes: int = 10, **kwargs) -> models.VGG:
     """Builds a VGG16 with batch normalization. Same function
     as in torchvision.models, but it does not use weights from
     pretrained models.
 
     Returns
     -------
-    VGG
+    VGG :
         VGG16 instance with batch normalization.
     """
     return models.vgg16_bn(pretrained=False, num_classes=num_classes, **kwargs)

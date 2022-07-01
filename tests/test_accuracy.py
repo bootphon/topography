@@ -23,7 +23,3 @@ def test_accuracy():
     _, targets = torch.max(inp.data, 1)
     assert accuracy(inp, targets).value == 1
     assert accuracy(inp, (targets + 1) % 5).value == 0
-
-
-if __name__ == "__main__":
-    test_accuracy()
