@@ -50,8 +50,8 @@ class RandomAudioFeaturesCrop(RandomCrop):
     def __init__(
         self,
         sample_rate: int,
-        duration: int = 1,
         transform: Optional[nn.Module] = None,
+        duration: int = 1,
         **kwargs
     ):
         """Creates the module to crop audio features.
@@ -63,15 +63,17 @@ class RandomAudioFeaturesCrop(RandomCrop):
         ----------
         sample_rate : int
             Sample rate of the audio signal.
-        duration : int
-            Duration in seconds of the audio segment corresponding to
-            the croped features.
         transform : Optional[nn.Module], optional
             Transform used to pre-process the input data.
             If it is not specified, the default transformation
             is to make log-compressed mel-spectrograms with 64 channels,
             computed with a window of 25 ms every 10 ms.
             By default None.
+        duration : int
+            Duration in seconds of the audio segment corresponding to
+            the croped features.
+        **kwargs :
+            torchvision.transforms.RandomCrop kwargs.
         """
         super().__init__((1, 1), **kwargs)
         sample = torch.rand(sample_rate * duration)

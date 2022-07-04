@@ -80,7 +80,7 @@ def _build_dataset(
     dest: str,
     sample_rate: int,
     download: bool,
-    transform: nn.Module,
+    process_fn: nn.Module,
 ) -> None:  # pragma: no cover
     """Build the processed Speech Commands dataset.
     Samples are padded with zeros for them to last for exactly one second.
@@ -96,7 +96,7 @@ def _build_dataset(
         Sample rate of Speech Commands.
     download : bool
         Whether to download the dataset if it is not found at root path.
-    transform : nn.Module
+    process_fn : nn.Module
         Transformation to apply to the audio.
 
     Raises
@@ -135,7 +135,7 @@ def _build_dataset(
                 )
 
             # Transformation and update the statistics
-            feats = transform(waveform)
+            feats = process_fn(waveform)
             torch.save(feats, out.joinpath(f"{idx:0{n_digits}d}.pt"))
             if subset == "training":
                 mean.update(feats.mean())
@@ -168,9 +168,9 @@ class SpeechCommands(Dataset):
         subset: str,
         build: bool = False,
         download: bool = True,
-        transform: Optional[nn.Module] = None,
+        process_fn: Optional[nn.Module] = None,
     ) -> None:
-        """Create the dataset. If `build`, apply the `transform`
+        """Create the dataset. If `build`, apply the `process_fn`
         to the waveforms to pre-process the data.
         The samples are then normalized according to statistics
         computed on the training set.
@@ -189,7 +189,7 @@ class SpeechCommands(Dataset):
         download : bool, optional
             Whether to download data for torchaudio SPEECHCOMMANDS,
             by default True.
-        transform : Optional[nn.Module], optional
+        process_fn : Optional[nn.Module], optional
             Transform used to pre-process the input data.
             If it is not specified, the default transformation
             is to make log-compressed mel-spectrograms with 64 channels,
@@ -204,10 +204,10 @@ class SpeechCommands(Dataset):
             raise ValueError(f"Invalid subset {subset}.")
         self.subset = subset
         if build:  # pragma: no cover
-            if transform is None:
-                transform = default_audio_transform(self.SAMPLE_RATE)
+            if process_fn is None:
+                process_fn = default_audio_transform(self.SAMPLE_RATE)
             _build_dataset(
-                root, self.root, self.SAMPLE_RATE, download, transform
+                root, self.root, self.SAMPLE_RATE, download, process_fn
             )
 
         stats = torch.load(self.root.joinpath("training_stats.pt"))

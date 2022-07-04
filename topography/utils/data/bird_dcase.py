@@ -15,7 +15,7 @@ from torchaudio.functional import resample
 from tqdm.auto import tqdm
 
 from topography.utils import AverageMeter
-from topography.utils.data.common import default_audio_transform
+from topography.utils.data import common
 
 FOLDER_IN_ARCHIVE = "BirdDCASE"
 _FILES = {
@@ -104,7 +104,7 @@ def download_bird_dcase(path: Path) -> None:
 
 
 def _process_dataset(
-    path: Path, sample_rate: int, transform: nn.Module
+    path: Path, sample_rate: int, process_fn: nn.Module
 ) -> None:
     """Process the BirdDCASE dataset: extract features from each waveform.
 
@@ -115,7 +115,7 @@ def _process_dataset(
     sample_rate : int
         Target sample rate. If an audio file has not the same sample rate,
         it will be resampled to this sample rate.
-    transform : nn.Module
+    process_fn : nn.Module
         Transformation to apply to the waveforms in order to extract
         features.
     """
@@ -135,7 +135,7 @@ def _process_dataset(
                 temp[:, : waveform.shape[1]] = waveform
                 waveform = temp
 
-            feats = transform(waveform)
+            feats = process_fn(waveform)
             mean.update(feats.mean())
             std.update(feats.std())
             torch.save(feats, (dest / file.stem).with_suffix(".pt"))
@@ -188,7 +188,9 @@ class BirdDCASE(Dataset):
         download: bool = False,
         process: bool = False,
         validation_set: str = "freefield1010",
-        transform: Optional[nn.Module] = None,
+        process_fn: Optional[nn.Module] = None,
+        crop: bool = True,
+        **kwargs,
     ) -> None:
         """Creates the dataset.
 
@@ -227,12 +229,16 @@ class BirdDCASE(Dataset):
         validation_set : str, optional
             The chosen validation set. Must be "BirdVox-DCASE-20k",
             "freefield1010" or "warblrb10k". By default "freefield1010"
-        transform : Optional[nn.Module], optional
+        process_fn : Optional[nn.Module], optional
             Transform used to pre-process the input data.
             If it is not specified, the default transformation
             is to make log-compressed mel-spectrograms with 64 channels,
             computed with a window of 25 ms every 10 ms.
             By default None.
+        crop : bool, optional
+            Whether to crop the input or not, by default True.
+        **kwargs :
+            Crop kwargs.
 
         Raises
         ------
@@ -256,10 +262,10 @@ class BirdDCASE(Dataset):
                 )
 
         # Process the datasets
+        if process_fn is None:
+            process_fn = common.default_audio_transform(self.SAMPLE_RATE)
         if process:
-            if transform is None:
-                transform = default_audio_transform(self.SAMPLE_RATE)
-            _process_dataset(self._path, self.SAMPLE_RATE, transform)
+            _process_dataset(self._path, self.SAMPLE_RATE, process_fn)
 
         # Split validation / training
         if validation_set not in _FILES:
@@ -290,6 +296,15 @@ class BirdDCASE(Dataset):
         )
         self._std = sum(stat["std"] * stat["length"] for stat in stats) / length
 
+        # Crop or not
+        self.transform = (
+            common.RandomAudioFeaturesCrop(
+                self.SAMPLE_RATE, transform=process_fn, **kwargs
+            )
+            if crop
+            else lambda inp: inp
+        )
+
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, int]:
         """Get a sample from the dataset. It is normalized
         according to the mean and standard deviation of the training set.
@@ -312,7 +327,7 @@ class BirdDCASE(Dataset):
             / (metadata.itemid + ".pt")
         )
         normalized = (torch.load(path) - self._mean) / self._std
-        return normalized, metadata.hasbird
+        return self.transform(normalized), metadata.hasbird
 
     def __len__(self) -> int:
         return len(self.metadata)
