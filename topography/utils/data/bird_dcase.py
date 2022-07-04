@@ -27,7 +27,7 @@ _FILES = {
         "https://archive.org/download/warblrb10k_public/warblrb10k_public_wav.zip",  # pylint: disable=line-too-long # noqa: E501
         "https://ndownloader.figshare.com/files/10853306",
     ),
-    "freefield1010": (
+    "ff1010bird": (
         "https://archive.org/download/ff1010bird/ff1010bird_wav.zip",
         "https://ndownloader.figshare.com/files/10853303",
     ),
@@ -45,7 +45,7 @@ class BirdDCASEMetadata:
     itemid : str
         Id of the sample in its subset.
     datasetid : str
-        Id of the subset. Either BirdVox-DCASE-20k, warblrb10k or freefield1010
+        Id of the subset. Either BirdVox-DCASE-20k, warblrb10k or ff1010bird
     hasbird : int
         Label of the sample. 1 if it has a bird in it, else 0.
     """
@@ -75,7 +75,7 @@ def download_bird_dcase(path: Path) -> None:
             ...
             BirdVox-DCASE-20k.zip
             warblrb10k_public_wav.zip
-            freefield1010_wav.zip
+            ff1010bird_wav.zip
             ...
             path/
             |--BirdVox-DCASE-20k/
@@ -86,7 +86,7 @@ def download_bird_dcase(path: Path) -> None:
             |----wav/
             |----labels.csv
             |
-            |--freefield1010/
+            |--ff1010bird/
             |----wav/
             |----labels.csv
     """
@@ -175,7 +175,7 @@ def _build_metadata(
 
 class BirdDCASE(Dataset):
     """BirdDCASE dataset. It is made of three datasets: BirdVox-DCASE-20k,
-    warblrb10k and freefield1010.
+    warblrb10k and ff1010bird.
     The data is pre-processed to use features instead of the raw audio.
     """
 
@@ -187,7 +187,7 @@ class BirdDCASE(Dataset):
         subset: str,
         download: bool = False,
         process: bool = False,
-        validation_set: str = "freefield1010",
+        validation_set: str = "ff1010bird",
         process_fn: Optional[nn.Module] = None,
         crop: bool = True,
         **kwargs,
@@ -213,7 +213,7 @@ class BirdDCASE(Dataset):
                 |----stats.pt
                 |----labels.csv
                 |
-                |--freefield1010/
+                |--ff1010bird/
                 |----wav/
                 |----processed/
                 |----stats.pt
@@ -228,7 +228,7 @@ class BirdDCASE(Dataset):
             by default False.
         validation_set : str, optional
             The chosen validation set. Must be "BirdVox-DCASE-20k",
-            "freefield1010" or "warblrb10k". By default "freefield1010"
+            "ff1010bird" or "warblrb10k". By default "ff1010bird"
         process_fn : Optional[nn.Module], optional
             Transform used to pre-process the input data.
             If it is not specified, the default transformation
