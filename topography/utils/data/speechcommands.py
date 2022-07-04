@@ -8,11 +8,12 @@ from typing import Dict, NamedTuple, Optional, Tuple
 import torch
 from torch import nn
 from torch.utils.data import Dataset
-from torchaudio import datasets, transforms
+from torchaudio import datasets
 from torchaudio.datasets.speechcommands import FOLDER_IN_ARCHIVE
 from tqdm.auto import tqdm
 
 from topography.utils import AverageMeter
+from topography.utils.data.common import default_audio_transform
 
 _LABELS: Dict[str, int] = {
     "backward": 0,
@@ -53,7 +54,7 @@ _LABELS: Dict[str, int] = {
 }
 
 
-class Metadata(NamedTuple):
+class SpeechCommandsMetadata(NamedTuple):
     """Metadata container."""
 
     idx: int
@@ -118,7 +119,7 @@ def _build_dataset(
         for idx, sample in enumerate(tqdm(dataset, desc=subset, leave=False)):
             n_digits = len(str(len(dataset)))
             waveform, *other = sample
-            metadata = Metadata(idx, *other)
+            metadata = SpeechCommandsMetadata(idx, *other)
             all_metadata[subset].append(str(metadata))
 
             # Check the sample and padding if necessary
@@ -153,43 +154,6 @@ def _build_dataset(
             dest.joinpath(f"{subset}.csv"), "w", encoding="utf-8"
         ) as file:
             file.write("\n".join(metadata))
-
-
-def _default_transform(
-    sample_rate: int,
-    window_duration: int = 25e-3,
-    hop_duration: int = 10e-3,
-    n_mels: int = 64,
-) -> nn.Module:
-    """Default transformation on waveforms for SpeechCommands: returns
-    log-compressed mel-spectrograms with, by default, 64 channels,
-    computed with a window of 25 ms every 10 ms.
-
-    Parameters
-    ----------
-    sample_rate : int
-        Sample rate of audio signal.
-    window_duration : int, optional
-        Duration of each window in seconds, by default 25e-3.
-    hop_duration : int, optional
-        Duration between successive windows, by default 10e-3.
-    n_mels : int, optional
-        Number of mel filterbanks., by default 64.
-
-    Returns
-    -------
-    nn.Module
-        Default transformation.
-    """
-    return nn.Sequential(
-        transforms.MelSpectrogram(
-            sample_rate=sample_rate,
-            n_fft=int(window_duration * sample_rate),
-            hop_length=int(hop_duration * sample_rate),
-            n_mels=n_mels,
-        ),
-        transforms.AmplitudeToDB(),
-    )
 
 
 class SpeechCommands(Dataset):
@@ -241,7 +205,7 @@ class SpeechCommands(Dataset):
         self.subset = subset
         if build:  # pragma: no cover
             if transform is None:
-                transform = _default_transform(self.SAMPLE_RATE)
+                transform = default_audio_transform(self.SAMPLE_RATE)
             _build_dataset(
                 root, self.root, self.SAMPLE_RATE, download, transform
             )
@@ -255,7 +219,9 @@ class SpeechCommands(Dataset):
         ) as file:
             for line in file.read().splitlines():
                 idx, *other = line.split(",")
-                self.metadata[int(idx)] = Metadata.from_csv(idx, *other)
+                self.metadata[int(idx)] = SpeechCommandsMetadata.from_csv(
+                    idx, *other
+                )
 
         self._path = self.root.joinpath(self.subset)
         self._n_digits = len(str(len(self.metadata)))

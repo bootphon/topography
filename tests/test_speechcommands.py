@@ -25,11 +25,11 @@ def test_labels():
 
 
 def test_metadata():
-    metadata = spc.Metadata(0, 16_000, "dog", "abc", 2)
+    metadata = spc.SpeechCommandsMetadata(0, 16_000, "dog", "abc", 2)
     csv_line = "0,16000,dog,abc,2"
     assert str(metadata) == csv_line
     splitted_line = "0,16000,dog,abc,2".split(",")
-    assert metadata == spc.Metadata.from_csv(*splitted_line)
+    assert metadata == spc.SpeechCommandsMetadata.from_csv(*splitted_line)
 
 
 def test_default_transform():
@@ -87,7 +87,7 @@ def test_speech_vgg():
     inv_labels = {value: key for key, value in spc._LABELS.items()}
     labels = [inv_labels[target.item()] for target in targets]
     metadata = [
-        str(spc.Metadata(idx, sample_rate, label, "dummy", 0))
+        str(spc.SpeechCommandsMetadata(idx, sample_rate, label, "dummy", 0))
         for idx, label in zip(range(num_samples), labels)
     ]
     with open(root.joinpath("training.csv"), "w") as file:
