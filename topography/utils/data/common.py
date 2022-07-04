@@ -3,8 +3,13 @@ from typing import Optional
 
 import torch
 from torch import nn
+from torch.utils.data import Dataset
 from torchaudio import transforms
 from torchvision.transforms import RandomCrop
+from torchvision.transforms import functional as F
+
+from topography.base import Metric
+from topography.training import Writer
 
 
 def default_audio_transform(
@@ -52,7 +57,7 @@ class RandomAudioFeaturesCrop(RandomCrop):
         sample_rate: int,
         transform: Optional[nn.Module] = None,
         duration: int = 1,
-        **kwargs
+        **kwargs,
     ):
         """Creates the module to crop audio features.
         If, for example, the `transform` computes mel-spectrograms
@@ -80,3 +85,32 @@ class RandomAudioFeaturesCrop(RandomCrop):
         if transform is None:
             transform = default_audio_transform(sample_rate)
         self.size = transform(sample).shape
+
+
+def evaluate_with_crop(
+    model: nn.Module,
+    dataset: Dataset,
+    metric: Metric,
+    device: torch.device,
+    writer: Writer,
+    *,
+    sample_rate: int,
+    transform: Optional[nn.Module] = None,
+    duration: int = 1,
+) -> float:
+    model.eval()
+    writer.next_epoch()
+    if transform is None:
+        transform = default_audio_transform(sample_rate)
+    height, width = transform(torch.rand(sample_rate * duration)).shape
+
+    with torch.no_grad():
+        for idx, (sample, target) in enumerate(dataset):
+            data = torch.cat(
+                [
+                    F.crop(sample, 0, left, height, width)
+                    for left in range(0, sample.shape[-1], width)
+                ]
+            )
+            output = model(data).to(device)
+            score = metric(output, target)
