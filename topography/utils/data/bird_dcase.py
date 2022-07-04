@@ -3,7 +3,7 @@ pre-processed features.
 """
 import dataclasses
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torchaudio
@@ -20,11 +20,11 @@ from topography.utils.data.common import default_audio_transform
 FOLDER_IN_ARCHIVE = "BirdDCASE"
 _FILES = {
     "BirdVox-DCASE-20k": (
-        "https://zenodo.org/api/files/4a8eaf84-3e69-4990-b5ff-fa0cc3fe4d24/BirdVox-DCASE-20k.zip",  # noqa: E501
+        "https://zenodo.org/api/files/4a8eaf84-3e69-4990-b5ff-fa0cc3fe4d24/BirdVox-DCASE-20k.zip",  # pylint: disable=line-too-long # noqa: E501
         "https://ndownloader.figshare.com/files/10853300",
     ),
     "warblrb10k": (
-        "https://archive.org/download/warblrb10k_public/warblrb10k_public_wav.zip",  # noqa: E501
+        "https://archive.org/download/warblrb10k_public/warblrb10k_public_wav.zip",  # pylint: disable=line-too-long # noqa: E501
         "https://ndownloader.figshare.com/files/10853306",
     ),
     "freefield1010": (
@@ -111,7 +111,7 @@ def _process_dataset(
     Parameters
     ----------
     path : Path
-        Root path
+        Root path.
     sample_rate : int
         Target sample rate. If an audio file has not the same sample rate,
         it will be resampled to this sample rate.
@@ -126,9 +126,9 @@ def _process_dataset(
         mean, std = AverageMeter("mean"), AverageMeter("std")
         files = list(src.glob("*.wav"))
         for file in tqdm(files, leave=False, desc=f"Process {dataset.name}"):
-            waveform, src_sample_rate = torchaudio.load(file)
-            if src_sample_rate != sample_rate:
-                waveform = resample(waveform, src_sample_rate, sample_rate)
+            audio, src_sr = torchaudio.load(file)  # pylint: disable=no-member
+            if src_sr != sample_rate:
+                waveform = resample(audio, src_sr, sample_rate)
             # Padding if necessary
             if waveform.shape[1] < sample_rate:
                 temp = torch.zeros(1, sample_rate)
@@ -144,6 +144,33 @@ def _process_dataset(
             {"mean": mean.avg, "std": std.avg, "length": len(files)},
             dataset / "stats.pt",
         )
+
+
+def _build_metadata(
+    path: Path, datasets: List[str]
+) -> Dict[int, BirdDCASEMetadata]:
+    """Build the metadata dictionnary from the considered datasets.
+
+    Parameters
+    ----------
+    path : Path
+        Root path.
+    datasets : List[str]
+        Used datasets.
+
+    Returns
+    -------
+    Dict[int, BirdDCASEMetadata]
+        Metadata dictionnary.
+    """
+    metadata, idx = {}, 0
+    for dataset in datasets:
+        with open(path / dataset / "labels.csv", "r", encoding="utf-8") as file:
+            lines = file.read().splitlines()[1:]
+        for line in lines:
+            metadata[idx] = BirdDCASEMetadata(idx, *line.split(","))
+            idx += 1
+    return metadata
 
 
 class BirdDCASE(Dataset):
@@ -235,7 +262,7 @@ class BirdDCASE(Dataset):
             _process_dataset(self._path, self.SAMPLE_RATE, transform)
 
         # Split validation / training
-        if validation_set not in _FILES.keys():
+        if validation_set not in _FILES:
             raise ValueError(
                 f"Validation set {validation_set} is invalid:"
                 f" must be in ({', '.join(_FILES.keys())})"
@@ -244,27 +271,13 @@ class BirdDCASE(Dataset):
         training_sets.remove(validation_set)
 
         # Build metadata
-        self.metadata: Dict[int, BirdDCASEMetadata] = {}
-
         if subset == "validation":
             datasets = [validation_set]
         elif subset == "training":
             datasets = training_sets
         else:
             raise ValueError(f"Invalid subset {subset}.")
-
-        idx = 0
-        for dataset in datasets:
-            with open(
-                self._path / dataset / "labels.csv", "r", encoding="utf-8"
-            ) as file:
-                lines = file.read().splitlines()[1:]
-            for line in lines:
-                itemid, datasetid, hasbird = line.split(",")
-                self.metadata[idx] = BirdDCASEMetadata(
-                    idx, itemid, datasetid, hasbird
-                )
-                idx += 1
+        self.metadata = _build_metadata(self._path, datasets)
 
         # Mean and std
         stats = [

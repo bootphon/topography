@@ -1,3 +1,4 @@
+"""Utilites shared between custom datasets."""
 from torch import nn
 from torchaudio import transforms
 
@@ -8,7 +9,7 @@ def default_audio_transform(
     hop_duration: int = 10e-3,
     n_mels: int = 64,
 ) -> nn.Module:
-    """Default transformation on waveforms for SpeechCommands: returns
+    """Default transformation on waveforms for audio datasets: returns
     log-compressed mel-spectrograms with, by default, 64 channels,
     computed with a window of 25 ms every 10 ms.
 
