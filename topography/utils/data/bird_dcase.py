@@ -1,3 +1,6 @@
+"""Provides the Bird DCASE dataset for birdsong detection, with
+pre-processed features.
+"""
 import dataclasses
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
@@ -31,9 +34,21 @@ _FILES = {
 }
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class BirdDCASEMetadata:
-    """Metadata container."""
+    """Metadata container.
+
+    Attributes
+    ----------
+    idx : int
+        Index of the sample in the current BirdDCASE dataset.
+    itemid : str
+        Id of the sample in its subset.
+    datasetid : str
+        Id of the subset. Either BirdVox-DCASE-20k, warblrb10k or freefield1010
+    hasbird : int
+        Label of the sample. 1 if it has a bird in it, else 0.
+    """
 
     idx: int
     itemid: str
@@ -41,25 +56,57 @@ class BirdDCASEMetadata:
     hasbird: int
 
     def __post_init__(self):
+        """Post-initialization: casts idx and hasbird as int."""
         self.idx = int(self.idx)
         self.hasbird = int(self.hasbird)
 
 
-def download_bird_dcase(root: Path, dest: Path) -> None:
+def download_bird_dcase(path: Path) -> None:
+    """Download the BirdDCASE datset.
+
+    Parameters
+    ----------
+    path : Path
+        Destination path. The archives are downloaded in the parent
+        directory.
+        It will have the following structure:
+
+        path/../
+            ...
+            BirdVox-DCASE-20k.zip
+            warblrb10k_public_wav.zip
+            freefield1010_wav.zip
+            ...
+            path/
+            |--BirdVox-DCASE-20k/
+            |----wav/
+            |----labels.csv
+            |
+            |--warblrb10k/
+            |----wav/
+            |----labels.csv
+            |
+            |--freefield1010/
+            |----wav/
+            |----labels.csv
+    """
+    root = path.parent
     for dataset_name, (url, labels_url) in _FILES.items():
-        path = dest / dataset_name
-        if not path.is_dir():
+        dataset = path / dataset_name
+        if not dataset.is_dir():
             archive = root / Path(url).name
             if not archive.is_file():
                 download_url_to_file(url, archive)
-            extract_archive(archive, path)
-        labels = path / "labels.csv"
+            extract_archive(archive, dataset)
+        labels = dataset / "labels.csv"
         if not labels.is_file():
             download_url_to_file(labels_url, labels)
 
 
-def process_dataset(path: Path, sample_rate: int, transform: nn.Module) -> None:
-    """Process BirdDCASE dataset: extract features from each waveform.
+def _process_dataset(
+    path: Path, sample_rate: int, transform: nn.Module
+) -> None:
+    """Process the BirdDCASE dataset: extract features from each waveform.
 
     Parameters
     ----------
@@ -100,7 +147,12 @@ def process_dataset(path: Path, sample_rate: int, transform: nn.Module) -> None:
 
 
 class BirdDCASE(Dataset):
-    SAMPLE_RATE = 16_000
+    """BirdDCASE dataset. It is made of three datasets: BirdVox-DCASE-20k,
+    warblrb10k and freefield1010.
+    The data is pre-processed to use features instead of the raw audio.
+    """
+
+    SAMPLE_RATE: int = 16_000  # Target sample rate.
 
     def __init__(
         self,
@@ -111,14 +163,65 @@ class BirdDCASE(Dataset):
         validation_set: str = "freefield1010",
         transform: Optional[nn.Module] = None,
     ) -> None:
+        """Creates the dataset.
+
+        Parameters
+        ----------
+        root : Union[str, Path]
+            Path to the directory where the dataset is found or downloaded.
+            The dataset directory will have the following structure:
+
+                root/BirdDCASE/
+                |--BirdVox-DCASE-20k/
+                |----wav/
+                |----processed/
+                |----stats.pt
+                |----labels.csv
+                |
+                |--warblrb10k/
+                |----wav/
+                |----processed/
+                |----stats.pt
+                |----labels.csv
+                |
+                |--freefield1010/
+                |----wav/
+                |----processed/
+                |----stats.pt
+                |----labels.csv
+        subset : str
+            Select a subset of the dataset. Must be `training` or `validation`.
+        download : bool, optional
+            Whether to download the dataset if it is not found at root path,
+            by default False.
+        process : bool, optional
+            Whether to process the dataset to extract the features,
+            by default False.
+        validation_set : str, optional
+            The chosen validation set. Must be "BirdVox-DCASE-20k",
+            "freefield1010" or "warblrb10k". By default "freefield1010"
+        transform : Optional[nn.Module], optional
+            Transform used to pre-process the input data.
+            If it is not specified, the default transformation
+            is to make log-compressed mel-spectrograms with 64 channels,
+            computed with a window of 25 ms every 10 ms.
+            By default None.
+
+        Raises
+        ------
+        RuntimeError
+            If the dataset if not found and `download` is set to False.
+        ValueError
+            If the validation set is not one of the three reference datasets
+            or if the specified subset is not `training` or `validation`.
+        """
         super().__init__()
-        root = Path(root).resolve()
-        self._path = root / FOLDER_IN_ARCHIVE
+        self._path = Path(root).resolve() / FOLDER_IN_ARCHIVE
 
         # Download the datasets
         if not self._path.is_dir():
             if download:
-                download_bird_dcase(root, self._path)
+                download_bird_dcase(self._path)
             else:
                 raise RuntimeError(
                     f"Dataset not found at {self._path}. "
@@ -129,7 +232,7 @@ class BirdDCASE(Dataset):
         if process:
             if transform is None:
                 transform = default_audio_transform(self.SAMPLE_RATE)
-            process_dataset(self._path, self.SAMPLE_RATE, transform)
+            _process_dataset(self._path, self.SAMPLE_RATE, transform)
 
         # Split validation / training
         if validation_set not in _FILES.keys():
