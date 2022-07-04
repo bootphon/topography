@@ -1,6 +1,10 @@
 """Utilites shared between custom datasets."""
+from typing import Optional
+
+import torch
 from torch import nn
 from torchaudio import transforms
+from torchvision.transforms import RandomCrop
 
 
 def default_audio_transform(
@@ -38,3 +42,39 @@ def default_audio_transform(
         ),
         transforms.AmplitudeToDB(),
     )
+
+
+class RandomAudioFeaturesCrop(RandomCrop):
+    """Crop audio features at a random location."""
+
+    def __init__(
+        self,
+        sample_rate: int,
+        duration: int = 1,
+        transform: Optional[nn.Module] = None,
+        **kwargs
+    ):
+        """Creates the module to crop audio features.
+        If, for example, the `transform` computes mel-spectrograms
+        with a sample rate of 16_000, setting `num_samples` to 16_000
+        will crop the features to a segment corresponding to 1 second of audio.
+
+        Parameters
+        ----------
+        sample_rate : int
+            Sample rate of the audio signal.
+        duration : int
+            Duration in seconds of the audio segment corresponding to
+            the croped features.
+        transform : Optional[nn.Module], optional
+            Transform used to pre-process the input data.
+            If it is not specified, the default transformation
+            is to make log-compressed mel-spectrograms with 64 channels,
+            computed with a window of 25 ms every 10 ms.
+            By default None.
+        """
+        super().__init__((1, 1), **kwargs)
+        sample = torch.rand(sample_rate * duration)
+        if transform is None:
+            transform = default_audio_transform(sample_rate)
+        self.size = transform(sample).shape
