@@ -2,14 +2,15 @@
 from typing import Optional
 
 import torch
+from sklearn import metrics
 from torch import nn
 from torch.utils.data import Dataset
 from torchaudio import transforms
 from torchvision.transforms import RandomCrop
 from torchvision.transforms import functional as F
 
-from topography.base import Metric
 from topography.training import Writer
+from topography.training.training import accuracy
 
 
 def default_audio_transform(
@@ -90,20 +91,22 @@ class RandomAudioFeaturesCrop(RandomCrop):
 def evaluate_with_crop(
     model: nn.Module,
     dataset: Dataset,
-    metric: Metric,
     device: torch.device,
     writer: Writer,
     *,
-    sample_rate: int,
+    mode: str = "test",
     transform: Optional[nn.Module] = None,
     duration: int = 1,
-) -> float:
+) -> None:
     model.eval()
-    writer.next_epoch()
+    writer.next_epoch(mode)
+
+    sample_rate = getattr(dataset, "SAMPLE_RATE", lambda: 16_000)
     if transform is None:
         transform = default_audio_transform(sample_rate)
     height, width = transform(torch.rand(sample_rate * duration)).shape
 
+    outputs, targets = [], []
     with torch.no_grad():
         for idx, (sample, target) in enumerate(dataset):
             data = torch.cat(
@@ -111,6 +114,14 @@ def evaluate_with_crop(
                     F.crop(sample, 0, left, height, width)
                     for left in range(0, sample.shape[-1], width)
                 ]
-            )
-            output = model(data).to(device)
-            score = metric(output, target)
+            ).to(device)
+            output = model(data).mean(axis=0)
+            acc = accuracy(output, target)
+            writer["acc"].update(acc.value, 1)
+            outputs.append(output.detach().numpy())
+            targets.append(target)
+            writer.log(idx)
+
+        roc_auc = metrics.roc_auc_score(targets, outputs)
+        writer["roc_auc"].update(roc_auc, 1)
+        print(writer.summary())
