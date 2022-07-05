@@ -108,20 +108,22 @@ def evaluate_with_crop(
 
     outputs, targets = [], []
     with torch.no_grad():
-        for idx, (sample, target) in enumerate(dataset):
+        for sample, target in dataset:
             data = torch.cat(
                 [
-                    F.crop(sample, 0, left, height, width)
+                    F.crop(sample, 0, left, height, width).unsqueeze(0)
                     for left in range(0, sample.shape[-1], width)
                 ]
             ).to(device)
             output = model(data).mean(axis=0)
-            acc = accuracy(output, target)
-            writer["acc"].update(acc.value, 1)
-            outputs.append(output.detach().numpy())
+            outputs.append(output.detach())
             targets.append(target)
-            writer.log(idx)
 
-        roc_auc = metrics.roc_auc_score(targets, outputs)
+        targets = torch.tensor(targets)
+        outputs = torch.vstack(outputs).cpu()
+        predictions = torch.max(outputs, 1)[1]
+        roc_auc = metrics.roc_auc_score(targets, predictions)
+        acc = accuracy(outputs, targets)
         writer["roc_auc"].update(roc_auc, 1)
+        writer["acc"].update(acc.value, 1)
         print(writer.summary())

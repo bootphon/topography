@@ -240,6 +240,8 @@ class SpeechCommands(Dataset):
         Tuple[torch.Tensor, int]
             Normalized features and label.
         """
+        if index >= len(self):
+            raise IndexError
         metadata = self.metadata[index]
         path = self._path.joinpath(f"{index:0{self._n_digits}d}.pt")
         normalized = (torch.load(path) - self._mean) / self._std

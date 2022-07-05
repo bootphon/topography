@@ -319,6 +319,8 @@ class BirdDCASE(Dataset):
         Tuple[torch.Tensor, int]
             Normalized features and label.
         """
+        if index >= len(self):
+            raise IndexError
         metadata = self.metadata[index]
         path = (
             self._path
