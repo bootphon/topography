@@ -170,7 +170,7 @@ class Writer:
         mode: str,
         metric: str,
         maximize: bool = True,
-        clean: bool = True,
+        remove_previous: bool = True,
         **kwargs,
     ) -> None:
         """Save checkpoints if for the given `mode`, the score for `metric`
@@ -198,17 +198,19 @@ class Writer:
         scores_per_epoch = [m[metric].avg for m in self._meters[mode].values()]
         last_score = scores_per_epoch[-1]
         if maximize:
-            cond = all(last_score >= score for score in scores_per_epoch)
+            best_score = all(last_score >= score for score in scores_per_epoch)
         else:
-            cond = all(last_score <= score for score in scores_per_epoch)
-        if cond:
-            if clean:
+            best_score = all(last_score <= score for score in scores_per_epoch)
+        if best_score:
+            if remove_previous:
                 for file in self._checkpoints.glob("*"):
                     file.unlink()
-            for k, module in kwargs.items():
+            for name, module in kwargs.items():
                 torch.save(
                     module.state_dict(),
-                    self._checkpoints.joinpath(f"{self._epochs[mode]:04d}.{k}"),
+                    self._checkpoints.joinpath(
+                        f"{self._epochs[mode]:04d}.{name}"
+                    ),
                 )
 
     def log(self, batch_idx: int) -> None:
