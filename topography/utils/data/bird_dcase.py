@@ -122,19 +122,13 @@ def _process_dataset(
     for src in path.glob("*/wav"):
         dataset = src.parent
         dest = dataset / "processed"
-        dest.mkdir()
+        dest.mkdir(exist_ok=True)
         mean, std = AverageMeter("mean"), AverageMeter("std")
         files = list(src.glob("*.wav"))
-        for file in tqdm(files, leave=False, desc=f"Process {dataset.name}"):
+        for file in tqdm(files, leave=False, desc=f"Processing {dataset.name}"):
             audio, src_sr = torchaudio.load(file)  # pylint: disable=no-member
             if src_sr != sample_rate:
                 waveform = resample(audio, src_sr, sample_rate)
-            # Padding if necessary
-            if waveform.shape[1] < sample_rate:
-                temp = torch.zeros(1, sample_rate)
-                temp[:, : waveform.shape[1]] = waveform
-                waveform = temp
-
             feats = process_fn(waveform)
             mean.update(feats.mean())
             std.update(feats.std())
@@ -190,6 +184,8 @@ class BirdDCASE(Dataset):
         validation_set: str = "ff1010bird",
         process_fn: Optional[nn.Module] = None,
         crop: bool = True,
+        duration: int = 1,
+        pad_if_needed: bool = True,
         **kwargs,
     ) -> None:
         """Creates the dataset.
@@ -297,11 +293,16 @@ class BirdDCASE(Dataset):
         self._std = sum(stat["std"] * stat["length"] for stat in stats) / length
 
         # Crop or not
+        self.crop = crop
         self.transform = (
             common.RandomAudioFeaturesCrop(
-                self.SAMPLE_RATE, transform=process_fn, **kwargs
+                self.SAMPLE_RATE,
+                transform=process_fn,
+                duration=duration,
+                pad_if_needed=pad_if_needed,
+                **kwargs,
             )
-            if crop
+            if self.crop
             else lambda inp: inp
         )
 

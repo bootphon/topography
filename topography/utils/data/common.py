@@ -56,8 +56,8 @@ class RandomAudioFeaturesCrop(RandomCrop):
     def __init__(
         self,
         sample_rate: int,
-        transform: Optional[nn.Module] = None,
         duration: int = 1,
+        transform: Optional[nn.Module] = None,
         **kwargs,
     ):
         """Creates the module to crop audio features.
@@ -69,15 +69,15 @@ class RandomAudioFeaturesCrop(RandomCrop):
         ----------
         sample_rate : int
             Sample rate of the audio signal.
+        duration : int, optional
+            Duration in seconds of the audio segment corresponding to
+            the croped features. By default 1.
         transform : Optional[nn.Module], optional
             Transform used to pre-process the input data.
             If it is not specified, the default transformation
             is to make log-compressed mel-spectrograms with 64 channels,
             computed with a window of 25 ms every 10 ms.
             By default None.
-        duration : int
-            Duration in seconds of the audio segment corresponding to
-            the croped features.
         **kwargs :
             torchvision.transforms.RandomCrop kwargs.
         """
@@ -95,24 +95,60 @@ def evaluate_with_crop(
     writer: Writer,
     *,
     mode: str = "test",
-    transform: Optional[nn.Module] = None,
     duration: int = 1,
+    transform: Optional[nn.Module] = None,
 ) -> None:
+    """Alternate evaluation procedure for audio datasets. Each sample is split
+    into smaller segments that lasts for `duration` seconds.
+    A prediction for the corresponding segment in made by averaging
+    the logits obtained for the different segments.
+
+    Parameters
+    ----------
+    model : nn.Module
+        Model to evaluate.
+    dataset : Dataset
+        Evaluation dataset. If it has a `crop` attribute (such as BirdDCASE),
+        it must be set to False.
+    device : torch.device
+        Device, either CPU or CUDA GPU.
+    writer : Writer
+        Writing utility.
+    mode : str, optional
+        Evaluation mode ("test" or "val"), by default "test".
+    duration : int, optional
+        Duration in seconds of each croped audio segment. By default 1.
+    transform : Optional[nn.Module], optional
+        Transform used to preprocessed the data. Used to get the width
+        of each croped segment given the `duration`.
+        If it is not specified, the default transformation
+        is to make log-compressed mel-spectrograms with 64 channels,
+        computed with a window of 25 ms every 10 ms.
+        By default None.
+
+    Raises
+    ------
+    ValueError
+        If the dataset is set to crop the input data directly.
+    """
+    if hasattr(dataset, "crop") and dataset.crop:
+        raise ValueError("Dataset must not crop the input.")
+
     model.eval()
     writer.next_epoch(mode)
 
     sample_rate = getattr(dataset, "SAMPLE_RATE", lambda: 16_000)
     if transform is None:
         transform = default_audio_transform(sample_rate)
-    height, width = transform(torch.rand(sample_rate * duration)).shape
+    width = transform(torch.rand(sample_rate * duration)).shape[1]
 
     outputs, targets = [], []
     with torch.no_grad():
         for sample, target in dataset:
             data = torch.cat(
                 [
-                    F.crop(sample, 0, left, height, width).unsqueeze(0)
-                    for left in range(0, sample.shape[-1], width)
+                    sample[..., end - width : end].unsqueeze(0)
+                    for end in range(width, sample.shape[-1], width)
                 ]
             ).to(device)
             output = model(data).mean(axis=0)
@@ -120,7 +156,7 @@ def evaluate_with_crop(
             targets.append(target)
 
         targets = torch.tensor(targets)
-        outputs = torch.vstack(outputs).cpu()
+        outputs = torch.vstack(outputs).cpu().squeeze()
         predictions = torch.max(outputs, 1)[1]
         roc_auc = metrics.roc_auc_score(targets, predictions)
         acc = accuracy(outputs, targets)
