@@ -145,12 +145,16 @@ def evaluate_with_crop(
     outputs, targets = [], []
     with torch.no_grad():
         for sample, target in dataset:
-            data = torch.cat(
-                [
-                    sample[..., end - width : end].unsqueeze(0)
-                    for end in range(width, sample.shape[-1], width)
-                ]
-            ).to(device)
+            if sample.shape[-1] >= width:
+                data = torch.cat(
+                    [
+                        sample[..., end - width : end].unsqueeze(0)
+                        for end in range(width, sample.shape[-1], width)
+                    ]
+                ).to(device)
+            else:
+                data = torch.zeros(1, *sample.shape[:-1], width).to(device)
+                data[..., : sample.shape[-1]] = sample
             output = model(data).mean(axis=0)
             outputs.append(output.detach())
             targets.append(target)
