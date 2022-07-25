@@ -7,5 +7,5 @@ notebooks/**/
 .coverage
 .pytest_cache
 htmlcov
-build
-data
+/build
+/data
