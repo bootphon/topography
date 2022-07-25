@@ -1,34 +1,35 @@
 """Test of the ResNet. Checks if it can overfit a single batch."""
 from tempfile import TemporaryDirectory
 
+import pytest
 import torch
 from torch import nn
 from torch.optim import SGD
 from torch.utils.data import DataLoader, TensorDataset
 
-from topography import MetricOutput, TopographicLoss, TopographicModel
-from topography.models import resnet18
+from topography import MetricOutput, TopographicLoss, TopographicModel, models
 from topography.training import Writer, evaluate, train
 from topography.training.training import accuracy
 from topography.utils import LinearWarmupCosineAnnealingLR
 
 
-def test_resnet_standard():
+@pytest.mark.parametrize("model_name", ["resnet18", "vgg16_bn"])
+def test_vision(model_name):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
     temp_dir = TemporaryDirectory()
     g = torch.Generator()
     g.manual_seed(0)
-    lr, epochs = 0.1, 10
+    lr, epochs = 0.01, 30
     cifar_classes, num_samples, shape = 10, 4, [3, 32, 32]
     device = torch.device("cpu")
-    model = resnet18()
+    model = getattr(models, model_name)(cifar_classes)
     optimizer = SGD(model.parameters(), lr=lr)
     scheduler = LinearWarmupCosineAnnealingLR(
-        optimizer, warmup_epochs=1, max_epochs=epochs
+        optimizer, warmup_epochs=0.3 * epochs, max_epochs=epochs
     )
     writer = Writer(temp_dir.name)
-    writer.log_hparams(lr=lr, epochs=epochs)
+    writer.log_config(dict(lr=lr, epochs=epochs))
     data = torch.randn([num_samples] + shape)
     targets = torch.randint(cifar_classes, [num_samples])
     dataset = TensorDataset(data, targets)
@@ -67,22 +68,23 @@ def test_resnet_standard():
     writer.close()
 
 
-def test_resnet_prior():
+@pytest.mark.parametrize("model_name", ["resnet18", "vgg16_bn"])
+def test_vision_topographic(model_name):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
     temp_dir = TemporaryDirectory()
     g = torch.Generator()
     g.manual_seed(0)
-    lr, epochs = 0.1, 10
+    lr, epochs = 0.01, 30
     cifar_classes, num_samples, shape = 10, 4, [3, 32, 32]
     device = torch.device("cpu")
-    model = TopographicModel(resnet18())
+    model = TopographicModel(getattr(models, model_name)(cifar_classes))
     optimizer = SGD(model.parameters(), lr=lr)
     scheduler = LinearWarmupCosineAnnealingLR(
-        optimizer, warmup_epochs=1, max_epochs=epochs
+        optimizer, warmup_epochs=0.3 * epochs, max_epochs=epochs
     )
     writer = Writer(temp_dir.name)
-    writer.log_hparams(lr=lr, epochs=epochs)
+    writer.log_config(dict(lr=lr, epochs=epochs))
     data = torch.randn([num_samples] + shape)
     targets = torch.randint(cifar_classes, [num_samples])
     dataset = TensorDataset(data, targets)
@@ -117,8 +119,3 @@ def test_resnet_prior():
     writer.save(mode="test", metric="acc", maximize=True, model=model)
     writer.save(mode="test", metric="loss", maximize=False, model=model)
     writer.close()
-
-
-if __name__ == "__main__":
-    test_resnet_standard()
-    test_resnet_prior()
