@@ -38,7 +38,7 @@ class TopographicModel(nn.Module):
             Dimension of the position assigned to each channel
             of each Conv2d layer, by default 2.
         norm : str, optional
-            Which norm between positions to use. Must be "euclidean",
+            Which norm between positions to use. Must be "euclidean" or "l1",
             by default "euclidean".
         position_scheme : str, optional
             How to assign positions. Must be "hypercube", by default

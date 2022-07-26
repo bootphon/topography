@@ -59,7 +59,8 @@ def hypercube(
 
 
 _DISTANCES: Dict[str, Callable] = {
-    "euclidean": lambda coords: torch.cdist(coords, coords, p=2)
+    "euclidean": lambda coords: torch.cdist(coords, coords, p=2),
+    "l1": lambda coords: torch.cdist(coords, coords, p=1),
 }
 _POSITIONS: Dict[str, Callable] = {"hypercube": hypercube}
 
@@ -84,7 +85,7 @@ def inverse_distance(
         Dimension of the position assigned to each channel
         of each Conv2d layer, by default 2.
     norm : str, optional
-        Which norm between positions to use. Must be "euclidean",
+        Which norm between positions to use. Must be "euclidean" or "l1",
         by default "euclidean".
     position_scheme : str, optional
         How to assign positions. Must be "hypercube", by default "hypercube".
