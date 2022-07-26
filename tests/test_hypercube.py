@@ -7,20 +7,37 @@ import torch
 from topography.core.distance import hypercube
 
 
-def test_simple_grid():
-    grid = hypercube(9, 2)
-    expected_grid = torch.Tensor(
-        [
-            [0.0, 0.0],
-            [0.5, 0.0],
-            [1.0, 0.0],
-            [0.0, 0.5],
-            [0.5, 0.5],
-            [1.0, 0.5],
-            [0.0, 1.0],
-            [0.5, 1.0],
-            [1.0, 1.0],
-        ]
+@pytest.mark.parametrize("integer_positions", [True, False])
+def test_simple_grid(integer_positions):
+    grid = hypercube(9, 2, integer_positions=integer_positions)
+    expected_grid = (
+        torch.tensor(
+            [
+                [0, 0],
+                [1, 0],
+                [2, 0],
+                [0, 1],
+                [1, 1],
+                [2, 1],
+                [0, 2],
+                [1, 2],
+                [2, 2],
+            ]
+        )
+        if integer_positions
+        else torch.tensor(
+            [
+                [0.0, 0.0],
+                [0.5, 0.0],
+                [1.0, 0.0],
+                [0.0, 0.5],
+                [0.5, 0.5],
+                [1.0, 0.5],
+                [0.0, 1.0],
+                [0.5, 1.0],
+                [1.0, 1.0],
+            ]
+        )
     )
     assert torch.equal(grid, expected_grid)
 

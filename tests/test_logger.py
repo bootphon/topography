@@ -1,10 +1,13 @@
 """Test of the logging utility."""
 import logging
-from tempfile import NamedTemporaryFile
+from pathlib import Path
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 
+import pandas as pd
 import pytest
 
-from topography.utils import get_logger
+from topography.training import Writer
+from topography.utils import get_logger, tensorboard_to_dataframe
 
 
 @pytest.mark.parametrize("level", ["debug", "info", "warning", "error"])
@@ -45,3 +48,30 @@ def test_logger_bad_level():
     with pytest.raises(ValueError) as err:
         get_logger("test", temp_file.name, level="bad")
     assert "Invalid logging level" in str(err.value)
+
+
+def test_tensorboard_to_dataframe():
+    temp_dir = TemporaryDirectory()
+    writer = Writer(temp_dir.name)
+    writer.next_epoch("test")
+    writer["loss"].update(1, 3)
+    writer["loss"].update(0, 2)
+    writer["acc"].update(0.5, 1)
+
+    summary = writer.summary()
+    assert summary == "test, epoch 1, loss 0.600, acc 0.500"
+
+    path = list(Path(temp_dir.name).rglob("*.tfevents*"))
+    assert len(path) == 1
+    dataframe = tensorboard_to_dataframe(path[0])
+    assert len(dataframe) == 2
+
+    ref_dataframe = pd.DataFrame(
+        {
+            "metric": ["test/loss", "test/acc"],
+            "value": [0.6, 0.5],
+            "step": [1.0, 1.0],
+        }
+    )
+    decimals = 6
+    assert dataframe.round(decimals).equals(ref_dataframe)

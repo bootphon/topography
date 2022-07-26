@@ -58,11 +58,11 @@ def hypercube(
     )
 
 
-_DISTANCES: Dict[str, Callable] = {
+_DISTANCES: Dict[str, Callable[[torch.Tensor], torch.Tensor]] = {
     "euclidean": lambda coords: torch.cdist(coords, coords, p=2),
     "l1": lambda coords: torch.cdist(coords, coords, p=1),
 }
-_POSITIONS: Dict[str, Callable] = {"hypercube": hypercube}
+_POSITIONS: Dict[str, Callable[..., torch.Tensor]] = {"hypercube": hypercube}
 
 
 def inverse_distance(

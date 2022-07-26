@@ -3,32 +3,15 @@ from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
 from matplotlib.axes import Axes
 from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
-from tensorboard.backend.event_processing import event_accumulator
 
 from topography.core.distance import _POSITIONS
 from topography.core.loss import _channel_correlation
 
 FigureAxes = Tuple[Figure, Axes]
-
-
-def tensorboard_to_dataframe(experiment_id: str) -> pd.DataFrame:
-    event_acc = event_accumulator.EventAccumulator(experiment_id)
-    df = pd.DataFrame({"metric": [], "value": [], "step": []})
-    event_acc.Reload()
-    tags = event_acc.Tags()["scalars"]
-    for tag in tags:
-        event_list = event_acc.Scalars(tag)
-        values = list(map(lambda x: x.value, event_list))
-        step = list(map(lambda x: x.step, event_list))
-        r = {"metric": [tag] * len(step), "value": values, "step": step}
-        r = pd.DataFrame(r)
-        df = pd.concat([df, r])
-    return df
 
 
 def plot_activations(

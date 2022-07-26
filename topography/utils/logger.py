@@ -1,6 +1,11 @@
 """Logging utilities.
 """
 import logging
+from pathlib import Path
+from typing import Union
+
+import pandas as pd
+from tensorboard.backend.event_processing import event_accumulator
 
 import topography
 
@@ -51,3 +56,32 @@ def get_logger(name: str, file: str, level: str = None) -> logging.Logger:
     except BaseException as invalid_level:
         raise ValueError(f'Invalid logging level "{level}"') from invalid_level
     return logger
+
+
+def tensorboard_to_dataframe(path: Union[str, Path]) -> pd.DataFrame:
+    """Convert a TensorBoard file to a pd.DataFrame.
+
+    Parameters
+    ----------
+    path : Union[str, Path]
+        Path to the TensorBoard file.
+
+    Returns
+    -------
+    pd.DataFrame
+        New DataFrame.
+    """
+    path = str(path)
+    event_acc = event_accumulator.EventAccumulator(path)
+    dataframe = pd.DataFrame({"metric": [], "value": [], "step": []})
+    event_acc.Reload()
+    tags = event_acc.Tags()["scalars"]
+    for tag in tags:
+        event_list = event_acc.Scalars(tag)
+        values = [event.value for event in event_list]
+        step = [event.step for event in event_list]
+        rows = {"metric": [tag] * len(step), "value": values, "step": step}
+        dataframe = pd.concat(
+            [dataframe, pd.DataFrame(rows)], ignore_index=True
+        )
+    return dataframe
