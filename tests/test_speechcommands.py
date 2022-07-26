@@ -101,7 +101,7 @@ def test_speech_vgg():
         optimizer, warmup_epochs=1, max_epochs=epochs
     )
     writer = Writer(temp_dir.name)
-    writer.log_hparams(lr=lr, epochs=epochs)
+    writer.log_config(dict(lr=lr, epochs=epochs))
     dataloader = DataLoader(dataset, batch_size=num_samples, generator=g)
     criterion = nn.CrossEntropyLoss()
 
