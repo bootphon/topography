@@ -13,6 +13,6 @@ To install this package, it is recommended to create a dedicated virtual
 environment with conda.
 
 ```bash
-conda create -f environment.yml
+conda env create -f environment.yml
 pip install -e .
 ```
