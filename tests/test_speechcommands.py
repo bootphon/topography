@@ -16,6 +16,7 @@ from topography.training.training import accuracy
 from topography.utils import LinearWarmupCosineAnnealingLR
 from topography.utils.data import SpeechCommands
 from topography.utils.data import speechcommands as spc
+from topography.utils.data.common import default_audio_transform
 
 
 def test_labels():
@@ -77,7 +78,7 @@ def test_speech_vgg():
 
     for idx in range(num_samples):
         waveform = torch.rand(1, sample_rate * duration)
-        feats = spc._default_transform(sample_rate)(waveform)
+        feats = default_audio_transform(sample_rate)(waveform)
         torch.save(feats, root.joinpath(f"training/{idx:0{n_digits}d}.pt"))
 
     stats = {"mean": torch.tensor(0), "std": torch.tensor(1)}
@@ -94,6 +95,9 @@ def test_speech_vgg():
         file.write("\n".join(metadata))
 
     dataset = SpeechCommands(root=temp_dir.name, subset="training", build=False)
+    with pytest.raises(IndexError):
+        dataset[num_samples + 1]
+
     device = torch.device("cpu")
     model = speech_vgg(num_classes=num_classes)
     optimizer = SGD(model.parameters(), lr=lr)

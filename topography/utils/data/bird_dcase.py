@@ -18,9 +18,9 @@ from tqdm.auto import tqdm
 from topography.utils import AverageMeter
 from topography.utils.data import common
 
-BirdCASEUrls = Dict[str, Tuple[str, str]]
+BirdDCASEUrls = Dict[str, Tuple[str, str]]
 
-URLS: BirdCASEUrls = {
+URLS: BirdDCASEUrls = {
     "BirdVox-DCASE-20k": (
         "https://zenodo.org/api/files/4a8eaf84-3e69-4990-b5ff-fa0cc3fe4d24/BirdVox-DCASE-20k.zip",  # pylint: disable=line-too-long # noqa: E501
         "https://ndownloader.figshare.com/files/10853300",
@@ -67,16 +67,16 @@ class BirdDCASEMetadata:
         self.hasbird = int(self.hasbird)
 
 
-def download_bird_dcase(path: Path, urls: BirdCASEUrls) -> None:
-    """Download the BirdDCASE datset.
+def download_bird_dcase(
+    path: Path, urls: BirdDCASEUrls
+) -> None:  # pragma: no cover
+    """Downloads the BirdDCASE datset.
 
     Parameters
     ----------
     path : Path
         Destination path. The archives are downloaded in the parent
-        directory.
-        It will have the following structure:
-
+        directory. It will have the following structure:
         path/../
             ...
             BirdVox-DCASE-20k.zip
@@ -95,6 +95,11 @@ def download_bird_dcase(path: Path, urls: BirdCASEUrls) -> None:
             |--ff1010bird/
             |----wav/
             |----labels.csv
+    urls: BirdDCASEUrls
+        URLs of the waveforms and labels.
+        Dictionary associating the intermediate dataset name
+        to a tuple containing the URL of the waveforms and the URL
+        of the labels.
     """
     root = path.parent
     for dataset_name, (url, labels_url) in urls.items():
@@ -112,21 +117,24 @@ def download_bird_dcase(path: Path, urls: BirdCASEUrls) -> None:
 def _assign_subset(
     num_samples: int, split: Tuple[float, float], generator: torch.Generator
 ) -> Dict[int, str]:
-    """_summary_
+    """Creates a dictionary assigning for each sample the subset
+    it is assigned to ("training", "validation" or "testing").
 
     Parameters
     ----------
-    num_samples : _type_
-        _description_
-    split : _type_
-        _description_
-    generator : _type_
-        _description_
+    num_samples : int
+        Number of samples in the dataset.
+    split : Tuple[float, float]
+        Proportion of training and validation data in the dataset.
+        Each value must be >0 and <1. The testing set will be made
+        of the rest of the samples.
+    generator : torch.Generator
+        PyTorch pseudo random number generator.
 
     Returns
     -------
-    _type_
-        _description_
+    Dict[int, str]
+        Dictionary assigning for each sample index the corresponding subset.
     """
     indices = torch.randperm(num_samples, generator=generator).numpy()
     lengths = [math.floor(prop * num_samples) for prop in split]
@@ -139,23 +147,33 @@ def _assign_subset(
 
 def _compute_subsets_statistics(
     path: Path, split: Tuple[float, float], seed: int
-) -> Dict:
-    """_summary_
+) -> Dict[str, Union[int, float, torch.Tensor]]:
+    """Computes the dataset mean and standard deviation of the processed
+    features, and splits each intermediate dataset ("BirdVox-DCASE-20k",
+    "warblrb10k" and "ff1010bird") into training, validation and testing.
 
     Parameters
     ----------
     path : Path
-        _description_
+        Root path.
     split : Tuple[float, float]
-        _description_
-    generator : torch.Generator
-        _description_
+        Proportion of training and validation data in the dataset.
+        Each value must be >0 and <1. The testing set will be made
+        of the rest of the samples.
+    seed : int
+        Random seed.
+
+    Returns
+    -------
+    Dict[str, Union[int, float, torch.Tensor]]:
+        Dataset statistics: mean, standard deviation, split proportions and
+        random seed.
     """
     generator = torch.Generator().manual_seed(seed)
     mean, std = AverageMeter("mean"), AverageMeter("std")
     for src in path.glob("*/processed"):
         subsets = ["itemid,subset"]
-        files = list(src.glob("*.pt"))
+        files = sorted(list(src.glob("*.pt")))
         assignements = _assign_subset(len(files), split, generator)
         for idx, file in enumerate(files):
             feats = torch.load(file)
@@ -202,16 +220,21 @@ def _process_dataset(
 
 
 def _build_metadata(
-    path: Path, subset: str, urls: BirdCASEUrls
+    path: Path, subset: str, urls: BirdDCASEUrls
 ) -> Dict[int, BirdDCASEMetadata]:
-    """Build the metadata dictionnary from the considered datasets.
+    """Build the metadata dictionnary for the considered subset.
 
     Parameters
     ----------
     path : Path
         Root path.
-    datasets : List[str]
-        Used datasets.
+    subset: str
+        Considered subset, either "training", "validation" or "testing".
+    urls: BirdDCASEUrls
+        URLs of the waveforms and labels.
+        Dictionary associating the intermediate dataset name
+        to a tuple containing the URL of the waveforms and the URL
+        of the labels.
 
     Returns
     -------
@@ -249,11 +272,10 @@ class BirdDCASE(Dataset):
         *,
         download: bool = False,
         process: bool = False,
-        split: Tuple[float, float] = (0.8, 0.1),
         process_fn: Optional[nn.Module] = None,
+        split: Tuple[float, float] = (0.8, 0.1),
         duration: int = 1,
-        pad_if_needed: bool = True,
-        urls: Optional[BirdCASEUrls] = None,
+        urls: Optional[BirdDCASEUrls] = None,
         seed: int = 0,
         **kwargs,
     ) -> None:
@@ -264,52 +286,68 @@ class BirdDCASE(Dataset):
         root : Union[str, Path]
             Path to the directory where the dataset is found or downloaded.
             The dataset directory will have the following structure:
-
-                root/BirdDCASE/
-                |--BirdVox-DCASE-20k/
-                |----wav/
-                |----processed/
-                |----stats.pt
-                |----labels.csv
+                root/
+                |--BirdVox-DCASE-20k.zip
+                |--warblrb10k_public_wav.zip
+                |--ff1010bird_wav.zip
                 |
-                |--warblrb10k/
-                |----wav/
-                |----processed/
-                |----stats.pt
-                |----labels.csv
+                |--stats.pt
+                |--BirdDCASE/
+                |----BirdVox-DCASE-20k/
+                |------wav/
+                |------processed/
+                |------labels.csv
+                |------split.csv
                 |
-                |--ff1010bird/
-                |----wav/
-                |----processed/
-                |----stats.pt
-                |----labels.csv
+                |----warblrb10k/
+                |------wav/
+                |------processed/
+                |------labels.csv
+                |------split.csv
+                |
+                |----ff1010bird/
+                |------wav/
+                |------processed/
+                |------labels.csv
+                |------split.csv
         subset : str
-            Select a subset of the dataset. Must be `training` or `validation`.
+            Select a subset of the dataset. Must be `training`, `validation`
+            or `testing`.
         download : bool, optional
             Whether to download the dataset if it is not found at root path,
             by default False.
         process : bool, optional
             Whether to process the dataset to extract the features,
             by default False.
-        validation_set : str, optional
-            The chosen validation set. Must be "BirdVox-DCASE-20k",
-            "ff1010bird" or "warblrb10k". By default "ff1010bird"
         process_fn : Optional[nn.Module], optional
             Transform used to pre-process the input data.
             If it is not specified, the default transformation
             is to make log-compressed mel-spectrograms with 64 channels,
             computed with a window of 25 ms every 10 ms.
             By default None.
+        split : Tuple[float, float]
+            Proportion of training and validation data in the dataset.
+            Each value must be >0 and <1. The testing set will be made
+            of the rest of the samples.
+        duration : int, optional
+            Duration in seconds of the audio segment corresponding to
+            the croped features. Used only for training. By default 1.
+        urls: BirdDCASEUrls, optional
+            URLs of the waveforms and labels.
+            Dictionary associating the intermediate dataset name
+            to a tuple containing the URL of the waveforms and the URL
+            of the labels. By default None.
         **kwargs :
-            Crop kwargs.
+            torchvision.transforms.RandomCrop kwargs.
 
         Raises
         ------
         RuntimeError
-            If the dataset if not found and `download` is set to False.
+            If the dataset if not found and `download` is set to False, or
+            if the number of audio files is not the same as the number
+            of processed features for one of the intermediate dataset.
         ValueError
-            If the validation set is not one of the three reference datasets
-            or if the specified subset is not `training` or `validation`.
+            If the subset is not `training`, `validation` or `testing`.
         """
         super().__init__()
         if subset not in SUBSETS:
@@ -341,7 +379,7 @@ class BirdDCASE(Dataset):
                 if len(list((dataset_path / "wav").glob("*.wav"))) != len(
                     list((dataset_path / "processed").glob("*.pt"))
                 ):
-                    raise ValueError(
+                    raise RuntimeError(
                         f"The number of audio files is not the same as "
                         f"the number of processed files in dataset {dataset}. "
                         f"Please set `process=True`."
@@ -364,9 +402,8 @@ class BirdDCASE(Dataset):
         self.transform = (
             common.RandomAudioFeaturesCrop(
                 self.SAMPLE_RATE,
-                transform=process_fn,
                 duration=duration,
-                pad_if_needed=pad_if_needed,
+                transform=process_fn,
                 **kwargs,
             )
             if self.crop

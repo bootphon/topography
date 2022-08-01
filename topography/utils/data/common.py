@@ -97,8 +97,8 @@ def evaluate_with_crop(
     duration: int = 1,
     transform: Optional[nn.Module] = None,
 ) -> None:
-    """Alternate evaluation procedure for audio datasets. Each sample is split
-    into smaller segments that lasts for `duration` seconds.
+    """Alternative evaluation procedure for audio datasets. Each sample is
+    split into smaller segments that lasts for `duration` seconds.
     A prediction for the corresponding segment in made by averaging
     the logits obtained for the different segments.
 
