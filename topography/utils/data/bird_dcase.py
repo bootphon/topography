@@ -2,8 +2,9 @@
 pre-processed features.
 """
 import dataclasses
+import math
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import torch
 import torchaudio
@@ -17,8 +18,9 @@ from tqdm.auto import tqdm
 from topography.utils import AverageMeter
 from topography.utils.data import common
 
-FOLDER_IN_ARCHIVE = "BirdDCASE"
-_FILES = {
+BirdCASEUrls = Dict[str, Tuple[str, str]]
+
+URLS: BirdCASEUrls = {
     "BirdVox-DCASE-20k": (
         "https://zenodo.org/api/files/4a8eaf84-3e69-4990-b5ff-fa0cc3fe4d24/BirdVox-DCASE-20k.zip",  # pylint: disable=line-too-long # noqa: E501
         "https://ndownloader.figshare.com/files/10853300",
@@ -32,6 +34,10 @@ _FILES = {
         "https://ndownloader.figshare.com/files/10853303",
     ),
 }
+
+FOLDER_IN_ARCHIVE = "BirdDCASE"
+SUBSETS = ["training", "validation", "testing"]
+EVALUATION_SUBSETS = ["validation", "testing"]
 
 
 @dataclasses.dataclass
@@ -61,7 +67,7 @@ class BirdDCASEMetadata:
         self.hasbird = int(self.hasbird)
 
 
-def download_bird_dcase(path: Path) -> None:
+def download_bird_dcase(path: Path, urls: BirdCASEUrls) -> None:
     """Download the BirdDCASE datset.
 
     Parameters
@@ -91,7 +97,7 @@ def download_bird_dcase(path: Path) -> None:
             |----labels.csv
     """
     root = path.parent
-    for dataset_name, (url, labels_url) in _FILES.items():
+    for dataset_name, (url, labels_url) in urls.items():
         dataset = path / dataset_name
         if not dataset.is_dir():
             archive = root / Path(url).name
@@ -103,8 +109,71 @@ def download_bird_dcase(path: Path) -> None:
             download_url_to_file(labels_url, labels)
 
 
+def _assign_subset(
+    num_samples: int, split: Tuple[float, float], generator: torch.Generator
+) -> Dict[int, str]:
+    """_summary_
+
+    Parameters
+    ----------
+    num_samples : _type_
+        _description_
+    split : _type_
+        _description_
+    generator : _type_
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    indices = torch.randperm(num_samples, generator=generator).numpy()
+    lengths = [math.floor(prop * num_samples) for prop in split]
+    lengths.append(num_samples - sum(lengths))
+    assign = sum(
+        ([subset] * length for subset, length in zip(SUBSETS, lengths)), []
+    )
+    return dict(zip(indices, assign))
+
+
+def _compute_subsets_statistics(
+    path: Path, split: Tuple[float, float], seed: int
+) -> Dict:
+    """_summary_
+
+    Parameters
+    ----------
+    path : Path
+        _description_
+    split : Tuple[float, float]
+        _description_
+    generator : torch.Generator
+        _description_
+    """
+    generator = torch.Generator().manual_seed(seed)
+    mean, std = AverageMeter("mean"), AverageMeter("std")
+    for src in path.glob("*/processed"):
+        subsets = ["itemid,subset"]
+        files = list(src.glob("*.pt"))
+        assignements = _assign_subset(len(files), split, generator)
+        for idx, file in enumerate(files):
+            feats = torch.load(file)
+            if assignements[idx] == "training":
+                mean.update(feats.mean())
+                std.update(feats.std())
+            subsets.append(f"{file.stem},{assignements[idx]}")
+        with open(src.parent / "split.csv", "w", encoding="utf-8") as file:
+            file.write("\n".join(subsets))
+    stats = {"mean": mean.avg, "std": std.avg, "split": split, "seed": seed}
+    torch.save(stats, path / "stats.pt")
+    return stats
+
+
 def _process_dataset(
-    path: Path, sample_rate: int, process_fn: nn.Module
+    path: Path,
+    sample_rate: int,
+    process_fn: nn.Module,
 ) -> None:
     """Process the BirdDCASE dataset: extract features from each waveform.
 
@@ -123,25 +192,17 @@ def _process_dataset(
         dataset = src.parent
         dest = dataset / "processed"
         dest.mkdir(exist_ok=True)
-        mean, std = AverageMeter("mean"), AverageMeter("std")
         files = list(src.glob("*.wav"))
-        for file in tqdm(files, leave=False, desc=f"Processing {dataset.name}"):
+        for file in tqdm(files, leave=False, desc=f"Process {dataset.name}"):
             audio, src_sr = torchaudio.load(file)  # pylint: disable=no-member
             if src_sr != sample_rate:
                 waveform = resample(audio, src_sr, sample_rate)
             feats = process_fn(waveform)
-            mean.update(feats.mean())
-            std.update(feats.std())
             torch.save(feats, (dest / file.stem).with_suffix(".pt"))
-
-        torch.save(
-            {"mean": mean.avg, "std": std.avg, "length": len(files)},
-            dataset / "stats.pt",
-        )
 
 
 def _build_metadata(
-    path: Path, datasets: List[str]
+    path: Path, subset: str, urls: BirdCASEUrls
 ) -> Dict[int, BirdDCASEMetadata]:
     """Build the metadata dictionnary from the considered datasets.
 
@@ -158,12 +219,18 @@ def _build_metadata(
         Metadata dictionnary.
     """
     metadata, idx = {}, 0
-    for dataset in datasets:
+    for dataset in sorted(urls.keys()):
+        with open(path / dataset / "split.csv", "r", encoding="utf-8") as file:
+            split = dict(
+                [line.split(",") for line in file.read().splitlines()[1:]]
+            )
         with open(path / dataset / "labels.csv", "r", encoding="utf-8") as file:
             lines = file.read().splitlines()[1:]
         for line in lines:
-            metadata[idx] = BirdDCASEMetadata(idx, *line.split(","))
-            idx += 1
+            line_metadata = BirdDCASEMetadata(idx, *line.split(","))
+            if split[line_metadata.itemid] == subset:
+                metadata[idx] = line_metadata
+                idx += 1
     return metadata
 
 
@@ -179,13 +246,15 @@ class BirdDCASE(Dataset):
         self,
         root: Union[str, Path],
         subset: str,
+        *,
         download: bool = False,
         process: bool = False,
-        validation_set: str = "ff1010bird",
+        split: Tuple[float, float] = (0.8, 0.1),
         process_fn: Optional[nn.Module] = None,
-        crop: bool = True,
         duration: int = 1,
         pad_if_needed: bool = True,
+        urls: Optional[BirdCASEUrls] = None,
+        seed: int = 0,
         **kwargs,
     ) -> None:
         """Creates the dataset.
@@ -231,8 +300,6 @@ class BirdDCASE(Dataset):
             is to make log-compressed mel-spectrograms with 64 channels,
             computed with a window of 25 ms every 10 ms.
             By default None.
-        crop : bool, optional
-            Whether to crop the input or not, by default True.
         **kwargs :
             Crop kwargs.
 
@@ -245,12 +312,18 @@ class BirdDCASE(Dataset):
             or if the specified subset is not `training` or `validation`.
         """
         super().__init__()
+        if subset not in SUBSETS:
+            raise ValueError(
+                f"Invalid subset '{subset}'. Must be in {SUBSETS}."
+            )
+        if urls is None:
+            urls = URLS
         self._path = Path(root).resolve() / FOLDER_IN_ARCHIVE
 
         # Download the datasets
         if not self._path.is_dir():
             if download:
-                download_bird_dcase(self._path)
+                download_bird_dcase(self._path, urls)
             else:
                 raise RuntimeError(
                     f"Dataset not found at {self._path}. "
@@ -262,38 +335,32 @@ class BirdDCASE(Dataset):
             process_fn = common.default_audio_transform(self.SAMPLE_RATE)
         if process:
             _process_dataset(self._path, self.SAMPLE_RATE, process_fn)
+        else:
+            for dataset in urls.keys():
+                dataset_path = self._path / dataset
+                if len(list((dataset_path / "wav").glob("*.wav"))) != len(
+                    list((dataset_path / "processed").glob("*.pt"))
+                ):
+                    raise ValueError(
+                        f"The number of audio files is not the same as "
+                        f"the number of processed files in dataset {dataset}. "
+                        f"Please set `process=True`."
+                    )
 
-        # Split validation / training
-        if validation_set not in _FILES:
-            raise ValueError(
-                f"Validation set {validation_set} is invalid:"
-                f" must be in ({', '.join(_FILES.keys())})"
-            )
-        training_sets = sorted(list(_FILES.keys()))
-        training_sets.remove(validation_set)
+        # Mean and std; split into subsets
+        if not (self._path / "stats.pt").is_file():
+            stats = _compute_subsets_statistics(self._path, split, seed)
+        else:
+            stats = torch.load(self._path / "stats.pt")
+            if stats["split"] != split or stats["seed"] != seed:
+                stats = _compute_subsets_statistics(self._path, split, seed)
+        self._mean, self._std = stats["mean"], stats["std"]
 
         # Build metadata
-        if subset == "validation":
-            datasets = [validation_set]
-        elif subset == "training":
-            datasets = training_sets
-        else:
-            raise ValueError(f"Invalid subset {subset}.")
-        self.metadata = _build_metadata(self._path, datasets)
-
-        # Mean and std
-        stats = [
-            torch.load(self._path / dataset / "stats.pt")
-            for dataset in training_sets
-        ]
-        length = sum(stat["length"] for stat in stats)
-        self._mean = (
-            sum(stat["mean"] * stat["length"] for stat in stats) / length
-        )
-        self._std = sum(stat["std"] * stat["length"] for stat in stats) / length
+        self.metadata = _build_metadata(self._path, subset, urls)
 
         # Crop or not
-        self.crop = crop
+        self.crop = subset not in EVALUATION_SUBSETS
         self.transform = (
             common.RandomAudioFeaturesCrop(
                 self.SAMPLE_RATE,

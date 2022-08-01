@@ -7,7 +7,6 @@ from torch import nn
 from torch.utils.data import Dataset
 from torchaudio import transforms
 from torchvision.transforms import RandomCrop
-from torchvision.transforms import functional as F
 
 from topography.training import Writer
 from topography.training.training import accuracy
