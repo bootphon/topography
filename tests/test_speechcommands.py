@@ -36,7 +36,7 @@ def test_metadata():
 def test_default_transform():
     sample_rate, n_mels = 16_000, 64
     window_duration, hop_duration = 0.025, 0.01
-    transform = spc._default_transform(sample_rate=sample_rate)
+    transform = default_audio_transform(sample_rate=sample_rate)
     assert isinstance(transform, nn.Module)
     mel_spectrogram, ampl_to_db = transform[0], transform[1]
     assert isinstance(mel_spectrogram, transforms.MelSpectrogram)
