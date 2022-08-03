@@ -1,27 +1,79 @@
 """Test of the hypercube function that is used to to assign positions
 to the channels.
 """
+from typing import Dict, Tuple
+
 import pytest
 import torch
 
 from topography.core.distance import hypercube
 
+expected_grids: Dict[Tuple[int, int], Dict[bool, torch.Tensor]] = {
+    (5, 1): {
+        True: torch.tensor([[0], [1], [2], [3], [4]]),
+        False: torch.tensor([[0], [0.25], [0.5], [0.75], [1.0]]),
+    },
+    (9, 2): {
+        True: torch.tensor(
+            [
+                [0, 0],
+                [1, 0],
+                [2, 0],
+                [0, 1],
+                [1, 1],
+                [2, 1],
+                [0, 2],
+                [1, 2],
+                [2, 2],
+            ]
+        ),
+        False: torch.tensor(
+            [
+                [0.0, 0.0],
+                [0.5, 0.0],
+                [1.0, 0.0],
+                [0.0, 0.5],
+                [0.5, 0.5],
+                [1.0, 0.5],
+                [0.0, 1.0],
+                [0.5, 1.0],
+                [1.0, 1.0],
+            ]
+        ),
+    },
+    (7, 2): {
+        True: torch.tensor(
+            [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [0, 2]]
+        ),
+        False: torch.tensor(
+            [
+                [0.0, 0.0],
+                [0.5, 0.0],
+                [1.0, 0.0],
+                [0.0, 0.5],
+                [0.5, 0.5],
+                [1.0, 0.5],
+                [0.0, 1.0],
+            ]
+        ),
+    },
+}
 
-def test_simple_grid():
-    grid = hypercube(9, 2)
-    expected_grid = torch.Tensor(
-        [
-            [0.0, 0.0],
-            [0.5, 0.0],
-            [1.0, 0.0],
-            [0.0, 0.5],
-            [0.5, 0.5],
-            [1.0, 0.5],
-            [0.0, 1.0],
-            [0.5, 1.0],
-            [1.0, 1.0],
-        ]
-    )
+
+@pytest.mark.parametrize(
+    "num_points,dimension,integer_positions",
+    [
+        (5, 1, True),
+        (5, 1, False),
+        (9, 2, True),
+        (9, 2, False),
+        (7, 2, True),
+        (7, 2, False),
+    ],
+)
+def test_simple_grid(num_points, dimension, integer_positions):
+    grid = hypercube(num_points, dimension, integer_positions=integer_positions)
+    expected_grid = expected_grids[(num_points, dimension)][integer_positions]
     assert torch.equal(grid, expected_grid)
 
 

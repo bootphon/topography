@@ -12,6 +12,7 @@ def hypercube(
     dimension: int,
     lower_bound: float = 0,
     upper_bound: float = 1,
+    integer_positions: bool = False,
 ) -> torch.Tensor:
     """Creates `num` positions in a cube of `dimension` dimensions.
     If there exists an integer `num_axis` such that
@@ -32,6 +33,10 @@ def hypercube(
         Lower bound of each coordinate in the cube, by default 0.
     upper_bound : float, optional
         Higher bound of each coordinate in the cube, by default 1.
+    integer_positions: bool, optional
+        Whether to use integer positions instead of specifying
+        the lower and upper bounds of each coordinate. If True,
+        `lower_bound` and `upper_bound` are ignored, by default False.
 
     Returns
     -------
@@ -39,10 +44,13 @@ def hypercube(
         Tensor of positions, of shape (`num_points`, `dimension`).
     """
     num_axis = int(math.ceil(num_points ** (1 / dimension)))
-    coords = [
-        torch.linspace(lower_bound, upper_bound, num_axis)
-        for _ in range(dimension)
-    ]
+    if integer_positions:
+        coords = [torch.arange(0, num_axis) for _ in range(dimension)]
+    else:
+        coords = [
+            torch.linspace(lower_bound, upper_bound, num_axis)
+            for _ in range(dimension)
+        ]
     return (
         torch.cat(torch.meshgrid(*coords, indexing="xy"))
         .reshape(dimension, -1)
@@ -50,11 +58,11 @@ def hypercube(
     )
 
 
-_DISTANCES: Dict[str, Callable] = {
+_DISTANCES: Dict[str, Callable[[torch.Tensor], torch.Tensor]] = {
     "euclidean": lambda coords: torch.cdist(coords, coords, p=2),
     "l1": lambda coords: torch.cdist(coords, coords, p=1),
 }
-_POSITIONS: Dict[str, Callable] = {"hypercube": hypercube}
+_POSITIONS: Dict[str, Callable[..., torch.Tensor]] = {"hypercube": hypercube}
 
 
 def inverse_distance(
@@ -99,6 +107,7 @@ def inverse_distance(
 if __name__ == "__main__":  # pragma: no cover
     # Simple check in order to visualize how the positions are distributed.
     import matplotlib.pyplot as plt
+    import numpy as np
 
     square_x, square_y = hypercube(64, 2).T
     plt.scatter(square_x, square_y)
@@ -108,4 +117,30 @@ if __name__ == "__main__":  # pragma: no cover
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(projection="3d")
     ax.scatter(cube_x, cube_y, cube_z, marker="o")
+    plt.show()
+
+    NUM_POINTS = 7
+    positions = hypercube(NUM_POINTS, 2, integer_positions=True)
+    plt.scatter(positions[:, 0], positions[:, 1])
+    plt.title(f"Scatter integer positions: {NUM_POINTS} points in 2d")
+    plt.show()
+
+    naxis = positions.max().item() + 1
+    img = np.ma.array(
+        np.arange(naxis * naxis),
+        mask=np.arange(naxis * naxis) >= len(positions),
+    ).reshape(naxis, naxis)
+    plt.imshow(img, origin="lower")
+    plt.title(f"Imshow using {NUM_POINTS} points")
+    plt.show()
+
+    fig, ax = plt.subplots(nrows=naxis, ncols=naxis)
+    for k, (i, j) in enumerate(positions):
+        ax[naxis - 1 - j, i].imshow(np.ones((5, 5)))
+        ax[naxis - 1 - j, i].set_title(f"{i}, {j}")
+
+    for i in range(ax.shape[0]):
+        for j in range(ax.shape[1]):
+            ax[i, j].axis("off")
+    plt.suptitle(f"Subplots with {NUM_POINTS} points")
     plt.show()
