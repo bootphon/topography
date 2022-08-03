@@ -404,6 +404,7 @@ class BirdDCASE(Dataset):
                 self.SAMPLE_RATE,
                 duration=duration,
                 transform=process_fn,
+                pad_if_needed=True,
                 **kwargs,
             )
             if self.crop
