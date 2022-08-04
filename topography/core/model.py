@@ -6,7 +6,7 @@ the `inverse_distance` buffer.
 import copy
 from collections import OrderedDict
 from operator import attrgetter
-from typing import Callable
+from typing import Callable, List, Optional
 
 import torch
 from torch import nn
@@ -24,6 +24,7 @@ class TopographicModel(nn.Module):
         dimension: int = 2,
         norm: str = "euclidean",
         position_scheme: str = "hypercube",
+        topographic_layer_names: Optional[List[str]] = None,
     ) -> None:
         """Creates the model. It is the same as the original model,
         but adds an `activations` field that records outputs
@@ -47,13 +48,18 @@ class TopographicModel(nn.Module):
         super().__init__()
         self.model = copy.deepcopy(model)
 
+        def condition(name: str, layer: nn.Module) -> bool:
+            is_conv2d = isinstance(layer, nn.Conv2d)
+            if topographic_layer_names is None:
+                return is_conv2d
+            return is_conv2d and name in topographic_layer_names
+
         names, conv_layers = zip(
-            *list(
-                filter(
-                    lambda named_module: isinstance(named_module[1], nn.Conv2d),
-                    self.model.named_modules(),
-                )
-            )
+            *[
+                (name, layer)
+                for name, layer in self.model.named_modules()
+                if condition(name, layer)
+            ]
         )
         out_channels = OrderedDict(
             zip(names, [layer.out_channels for layer in conv_layers])
@@ -70,7 +76,7 @@ class TopographicModel(nn.Module):
 
             return hook
 
-        self._conv_layer_names = names
+        self.topographic_layer_names = names
         for name, layer in zip(names, conv_layers):
             layer.register_buffer("inverse_distance", inv_dist[name])
             layer.register_forward_hook(get_activation(name))
@@ -91,7 +97,7 @@ class TopographicModel(nn.Module):
             The dictionnary of inverse distances.
         """
         inv_dist = OrderedDict()
-        for name in self._conv_layer_names:
+        for name in self.topographic_layer_names:
             inv_dist[name] = attrgetter(name)(self.model).inverse_distance
         return inv_dist
 
