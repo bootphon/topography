@@ -29,7 +29,7 @@ def resnet18(
     Returns
     -------
     ResNet :
-        Instance of ResNet-18
+        Instance of ResNet-18.
 
     References
     ----------
@@ -108,7 +108,7 @@ def densenet121(
     Returns
     -------
     models.DenseNet
-        _description_
+        DenseNet-121 instance.
     """
     densenet = models.densenet121(num_classes=num_classes, **kwargs)
 
