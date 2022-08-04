@@ -107,6 +107,7 @@ def inverse_distance(
 if __name__ == "__main__":  # pragma: no cover
     # Simple check in order to visualize how the positions are distributed.
     import matplotlib.pyplot as plt
+    import numpy as np
 
     square_x, square_y = hypercube(64, 2).T
     plt.scatter(square_x, square_y)
@@ -116,4 +117,30 @@ if __name__ == "__main__":  # pragma: no cover
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(projection="3d")
     ax.scatter(cube_x, cube_y, cube_z, marker="o")
+    plt.show()
+
+    NUM_POINTS = 7
+    positions = hypercube(NUM_POINTS, 2, integer_positions=True)
+    plt.scatter(positions[:, 0], positions[:, 1])
+    plt.title(f"Scatter integer positions: {NUM_POINTS} points in 2d")
+    plt.show()
+
+    naxis = positions.max().item() + 1
+    img = np.ma.array(
+        np.arange(naxis * naxis),
+        mask=np.arange(naxis * naxis) >= len(positions),
+    ).reshape(naxis, naxis)
+    plt.imshow(img, origin="lower")
+    plt.title(f"Imshow using {NUM_POINTS} points")
+    plt.show()
+
+    fig, ax = plt.subplots(nrows=naxis, ncols=naxis)
+    for k, (i, j) in enumerate(positions):
+        ax[naxis - 1 - j, i].imshow(np.ones((5, 5)))
+        ax[naxis - 1 - j, i].set_title(f"{i}, {j}")
+
+    for i in range(ax.shape[0]):
+        for j in range(ax.shape[1]):
+            ax[i, j].axis("off")
+    plt.suptitle(f"Subplots with {NUM_POINTS} points")
     plt.show()
