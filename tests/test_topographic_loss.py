@@ -4,7 +4,7 @@ import torch
 
 from topography import TopographicLoss, TopographicModel, topographic_loss
 from topography.core.loss import _reduce
-from topography.models import resnet18
+from topography.models import resnet18, topographic_layer_names
 
 
 @pytest.mark.parametrize("reduction", ["mean", "sum", "none"])
@@ -30,3 +30,9 @@ def test_topographic_loss_bad_reduction():
     with pytest.raises(ValueError) as err:
         _reduce(torch.zeros(2, 2), reduction="bad")
     assert "is not a valid value for reduction" in str(err.value)
+
+
+def test_wrong_topgraphic_model_name():
+    with pytest.raises(ValueError) as err:
+        topographic_layer_names("efficientnet")
+    assert str(err.value).startswith("Unknown model")
