@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torchaudio import transforms
 from torchaudio.datasets.speechcommands import FOLDER_IN_ARCHIVE
 
-from topography.models import speech_vgg
+from topography.models import vgg16_bn
 from topography.training import Writer, evaluate, train
 from topography.training.training import accuracy
 from topography.utils import LinearWarmupCosineAnnealingLR
@@ -60,7 +60,7 @@ def test_bad_subset():
     assert str(error.value).startswith("Invalid subset")
 
 
-def test_speech_vgg():
+def test_vgg16_bn():
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
     temp_dir = TemporaryDirectory()
@@ -95,7 +95,7 @@ def test_speech_vgg():
 
     dataset = SpeechCommands(root=temp_dir.name, subset="training", build=False)
     device = torch.device("cpu")
-    model = speech_vgg(num_classes=num_classes)
+    model = vgg16_bn(num_classes=num_classes, in_channels=1)
     optimizer = SGD(model.parameters(), lr=lr)
     scheduler = LinearWarmupCosineAnnealingLR(
         optimizer, warmup_epochs=1, max_epochs=epochs
