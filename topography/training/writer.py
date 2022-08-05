@@ -3,10 +3,10 @@ checkpoints.
 """
 import inspect
 import json
-import shutil
 import socket
 import subprocess
 import uuid
+import zipfile
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
@@ -35,7 +35,9 @@ def _copy_git_directory(path: Path) -> None:
     """
     git_path = Path(inspect.getfile(topography)).parent.parent.joinpath(".git")
     if git_path.exists():
-        shutil.copytree(git_path, path)
+        with zipfile.ZipFile(path.with_suffix(".zip"), mode="w") as archive:
+            for file in git_path.rglob("*"):
+                archive.write(file, arcname=file.relative_to(git_path))
 
 
 def _exec_command(cmd: str, path: Optional[Path] = None) -> None:
