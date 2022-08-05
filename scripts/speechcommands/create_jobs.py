@@ -1,4 +1,4 @@
-"""Simple script to create jobs to run on CIFAR."""
+"""Simple script to create jobs to run on SpeechCommands."""
 import argparse
 from itertools import product
 from pathlib import Path
@@ -15,40 +15,38 @@ if __name__ == "__main__":
         "--output",
         type=str,
         help="Output containing the list of jobs to run.",
-        default="./cifar.txt",
+        default="./speechcommands.txt",
     )
     args = parser.parse_args()
 
     workdir = Path(args.workdir).resolve()
     jobs = Path(args.output).resolve()
-    script = workdir / "topography/scripts/cifar/run.py"
+    script = workdir / "topography/scripts/speechcommands/run.py"
     logdir = workdir / "experiments"
     datadir = workdir / "data"
 
     models = ["resnet18", "vgg16_bn", "densenet121"]
-    cifar_classes = [10, 100]
     dimensions = [1, 2, 3]
     norms = ["euclidean", "l1"]
     lambdas = [10**p for p in range(-5, 4)]
 
     with open(jobs, "w", encoding="utf-8") as file:
-        for model, num_classes in product(models, cifar_classes):
-            path = f"cifar{num_classes}/{model}/base"
+        for model in models:
+            path = f"speechcommands/{model}/base"
             file.write(
                 f"python {script} --log {logdir / path}"
-                f" --data {datadir} --seed {SEED}"
-                f" --model {model} --num_classes {num_classes}\n"
+                f" --data {datadir} --seed {SEED} --model {model}\n"
             )
-        for model, num_classes, dim, norm, lambd in product(
-            models, cifar_classes, dimensions, norms, lambdas
+        for model, dim, norm, lambd in product(
+            models, dimensions, norms, lambdas
         ):
             path = (
-                f"cifar{num_classes}/{model}/"
+                f"speechcommands/{model}/"
                 + f"dimension_{dim}/lambda_{lambd}/norm_{norm}"
             )
             file.write(
                 f"python {script} --log {logdir / path}"
                 f" --data {datadir} --seed {SEED} --model {model}"
-                f" --num_classes {num_classes} --topographic --norm {norm}"
+                f" --topographic --norm {norm}"
                 f" --lambd {lambd} --dimension {dim}\n"
             )
