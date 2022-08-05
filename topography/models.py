@@ -1,7 +1,7 @@
 """Provides models to be trained of image (CIFAR-10, CIFAR-100) and
 audio (BirdDCASE, SpeechCommands) datasets.
 """
-from typing import List, Optional
+from typing import Optional, Tuple
 
 from torch import nn
 from torchvision import models
@@ -124,7 +124,7 @@ def densenet121(
     return densenet
 
 
-def topographic_layer_names(model_name: str) -> Optional[List[str]]:
+def topographic_layer_names(model_name: str) -> Optional[Tuple[str]]:
     """Returns the names of the Conv2d to which add topography.
     If None, all the Conv2d layers will be considered when using
     `TopographicModel`.
@@ -136,7 +136,7 @@ def topographic_layer_names(model_name: str) -> Optional[List[str]]:
 
     Returns
     -------
-    Optional[List[str]]
+    Optional[Tuple[str]]
         Module names in the model.
 
     Raises
@@ -145,21 +145,21 @@ def topographic_layer_names(model_name: str) -> Optional[List[str]]:
         If the given name is invalid.
     """
     if model_name == "resnet18":
-        return [
+        return (
             "conv1",
             "layer1.1.conv2",
             "layer2.1.conv2",
             "layer3.1.conv2",
             "layer4.1.conv2",
-        ]
+        )
     if model_name == "densenet121":
-        return [
+        return (
             "features.conv0",
             "features.denseblock1.denselayer6.conv2",
             "features.denseblock2.denselayer12.conv2",
             "features.denseblock3.denselayer24.conv2",
             "features.denseblock4.denselayer16.conv2",
-        ]
+        )
     if model_name == "vgg16_bn":
         return None
     raise ValueError(
