@@ -16,6 +16,7 @@ from topography.training.training import accuracy
 from topography.utils import LinearWarmupCosineAnnealingLR
 from topography.utils.data import SpeechCommands
 from topography.utils.data import speechcommands as spc
+from topography.utils.data.common import default_audio_transform
 
 
 def test_labels():
@@ -25,17 +26,17 @@ def test_labels():
 
 
 def test_metadata():
-    metadata = spc.Metadata(0, 16_000, "dog", "abc", 2)
+    metadata = spc.SpeechCommandsMetadata(0, 16_000, "dog", "abc", 2)
     csv_line = "0,16000,dog,abc,2"
     assert str(metadata) == csv_line
     splitted_line = "0,16000,dog,abc,2".split(",")
-    assert metadata == spc.Metadata.from_csv(*splitted_line)
+    assert metadata == spc.SpeechCommandsMetadata.from_csv(*splitted_line)
 
 
 def test_default_transform():
     sample_rate, n_mels = 16_000, 64
     window_duration, hop_duration = 0.025, 0.01
-    transform = spc._default_transform(sample_rate=sample_rate)
+    transform = default_audio_transform(sample_rate=sample_rate)
     assert isinstance(transform, nn.Module)
     mel_spectrogram, ampl_to_db = transform[0], transform[1]
     assert isinstance(mel_spectrogram, transforms.MelSpectrogram)
@@ -77,7 +78,7 @@ def test_vgg16_bn():
 
     for idx in range(num_samples):
         waveform = torch.rand(1, sample_rate * duration)
-        feats = spc._default_transform(sample_rate)(waveform)
+        feats = default_audio_transform(sample_rate)(waveform)
         torch.save(feats, root.joinpath(f"training/{idx:0{n_digits}d}.pt"))
 
     stats = {"mean": torch.tensor(0), "std": torch.tensor(1)}
@@ -87,13 +88,16 @@ def test_vgg16_bn():
     inv_labels = {value: key for key, value in spc._LABELS.items()}
     labels = [inv_labels[target.item()] for target in targets]
     metadata = [
-        str(spc.Metadata(idx, sample_rate, label, "dummy", 0))
+        str(spc.SpeechCommandsMetadata(idx, sample_rate, label, "dummy", 0))
         for idx, label in zip(range(num_samples), labels)
     ]
     with open(root.joinpath("training.csv"), "w") as file:
         file.write("\n".join(metadata))
 
     dataset = SpeechCommands(root=temp_dir.name, subset="training", build=False)
+    with pytest.raises(IndexError):
+        dataset[num_samples + 1]
+
     device = torch.device("cpu")
     model = vgg16_bn(num_classes=num_classes, in_channels=1)
     optimizer = SGD(model.parameters(), lr=lr)
