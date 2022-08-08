@@ -29,7 +29,7 @@ if __name__ == "__main__":
     cifar_classes = [10, 100]
     dimensions = [1, 2, 3]
     norms = ["euclidean", "l1"]
-    lambdas = [10**p for p in range(-5, 4)]
+    lambdas = [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50]
 
     with open(jobs, "w", encoding="utf-8") as file:
         for model, num_classes in product(models, cifar_classes):
