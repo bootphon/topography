@@ -6,7 +6,7 @@ the `inverse_distance` buffer.
 import copy
 from collections import OrderedDict
 from operator import attrgetter
-from typing import Callable, List, Optional
+from typing import Callable, Optional, Tuple
 
 import torch
 from torch import nn
@@ -24,7 +24,7 @@ class TopographicModel(nn.Module):
         dimension: int = 2,
         norm: str = "euclidean",
         position_scheme: str = "hypercube",
-        topographic_layer_names: Optional[List[str]] = None,
+        topographic_layer_names: Optional[Tuple[str]] = None,
     ) -> None:
         """Creates the model. It is the same as the original model,
         but adds an `activations` field that records outputs
@@ -44,8 +44,8 @@ class TopographicModel(nn.Module):
         position_scheme : str, optional
             How to assign positions. Must be "hypercube", by default
             "hypercube".
-        topographic_layer_names : List[str], optional
-            List of names of the Conv2d layers to which add topography.
+        topographic_layer_names : Tuple[str], optional
+            Tuple of names of the Conv2d layers to which add topography.
             If None, all Conv2d layers will be used. By default None.
         """
         super().__init__()
