@@ -168,6 +168,10 @@ def main(config: BirdDCASEConfig) -> None:
         writer.save(
             "val", "acc", model=model, optimizer=optimizer, scheduler=scheduler
         )
+
+    state_dict = sorted((writer.root / "checkpoints").glob("*.model"))[-1]
+    model.load_state_dict(torch.load(state_dict, map_location=device))
+
     evaluate_with_crop(
         model, test_set, device, writer, mode="test", duration=config.duration
     )

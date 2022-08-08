@@ -201,6 +201,10 @@ def main(config: CIFARConfig) -> None:
         writer.save(
             "val", "acc", model=model, optimizer=optimizer, scheduler=scheduler
         )
+
+    state_dict = sorted((writer.root / "checkpoints").glob("*.model"))[-1]
+    model.load_state_dict(torch.load(state_dict, map_location=device))
+
     evaluate(model, test_loader, criterion, device, writer, mode="test")
     writer.close()
 
