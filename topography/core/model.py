@@ -44,6 +44,9 @@ class TopographicModel(nn.Module):
         position_scheme : str, optional
             How to assign positions. Must be "hypercube", by default
             "hypercube".
+        topographic_layer_names : List[str], optional
+            List of names of the Conv2d layers to which add topography.
+            If None, all Conv2d layers will be used. By default None.
         """
         super().__init__()
         self.model = copy.deepcopy(model)
