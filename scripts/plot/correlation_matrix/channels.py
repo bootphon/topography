@@ -158,6 +158,9 @@ if __name__ == "__main__":
     ) as file:
         config_json = json.load(file)
 
+    if "dimension" not in config_json or config_json["dimension"] != 2:
+        raise ValueError("Dimension must be 2.")
+
     random.seed(config_json["seed"])
     np.random.seed(config_json["seed"])
     torch.manual_seed(config_json["seed"])
