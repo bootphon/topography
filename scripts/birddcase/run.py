@@ -42,6 +42,8 @@ class BirdDCASEConfig:
     scheduler: str = "LinearWarmupCosineAnnealingLR"  # LR scheduler.
     warmup_epochs_prop: float = 0.3  # Proportion of warmup epochs.
 
+    dataset: str = "birddcase"  # Dataset used
+
     def __post_init__(self):
         """Post initialization checks.
 

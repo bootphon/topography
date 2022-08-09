@@ -17,7 +17,7 @@ from topography.training import Writer, evaluate, train
 from topography.utils import LinearWarmupCosineAnnealingLR
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class CIFARConfig:
     """Dataclass to store the whole configuration used."""
 
@@ -50,6 +50,8 @@ class CIFARConfig:
     scheduler: str = "LinearWarmupCosineAnnealingLR"  # LR scheduler.
     warmup_epochs_prop: float = 0.3  # Proportion of warmup epochs.
 
+    dataset: Optional[str] = None  # Dataset used
+
     def __post_init__(self):
         """Post initialization checks.
 
@@ -65,6 +67,7 @@ class CIFARConfig:
                 f"Invalid number of classes '{self.num_classes}'"
                 "in CIFAR. Must be either 10 or 100."
             )
+        self.dataset = f"cifar{self.num_classes}"
         if self.topographic and (
             self.lambd is None or self.norm is None or self.dimension is None
         ):
