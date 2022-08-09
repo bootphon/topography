@@ -46,7 +46,7 @@ def plot_processed_recap(
             & (dataframe.dataset == dataset)
             & ~dataframe.topographic
         ].test_acc.mean()
-        if np.isnan(df_model):
+        if df_model.empty:
             continue
         if not np.isnan(reference):
             ax[i, j].hlines(
