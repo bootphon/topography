@@ -70,17 +70,19 @@ def main(config: RecapConfig) -> None:
                 parent.joinpath("summary.log"), "r", encoding="utf-8"
             ) as file:
                 lines = file.readlines()
-                for line in lines:
-                    if "test" in line and "acc" in line:
-                        for part in line.strip().split(", "):
-                            if part.startswith("acc"):
-                                test_acc = float(part.removeprefix("acc"))
-                        break
+                for mode in ("val", "test"):
+                    for line in lines[::-1]:
+                        if mode in line and "acc" in line:
+                            for part in line.strip().split(", "):
+                                if part.startswith("acc"):
+                                    recap[f"{mode}_acc"] = float(
+                                        part.removeprefix("acc")
+                                    )
+                            break
             with open(
                 out.joinpath("summary.log"), "w", encoding="utf-8"
             ) as file:
                 file.write("".join(lines))
-            recap["test_acc"] = test_acc
             recaps.append(recap)
         except FileNotFoundError as error:
             print(str(error))
