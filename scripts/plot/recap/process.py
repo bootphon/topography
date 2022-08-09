@@ -40,12 +40,12 @@ def plot_processed_recap(
         df_model = dataframe[
             (dataframe.model == model)
             & (dataframe.dataset == dataset)
-            & (dataframe.topographic == True)
+            & dataframe.topographic
         ]
         reference = dataframe[
             (dataframe.model == model)
             & (dataframe.dataset == dataset)
-            & (dataframe.topographic == False)
+            & ~dataframe.topographic
         ].test_acc.mean()
         if not np.isnan(reference):
             ax[i, j].hlines(
@@ -57,7 +57,7 @@ def plot_processed_recap(
                 zorder=1,
             )
 
-        for dim in sorted(dataframe.dimension.unique()):
+        for dim in sorted(df_model.dimension.unique()):
             subdf = df_model[df_model.dimension == dim]
             ax[i, j].scatter(
                 subdf.lambd,
