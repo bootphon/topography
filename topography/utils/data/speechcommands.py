@@ -8,11 +8,12 @@ from typing import Dict, NamedTuple, Optional, Tuple
 import torch
 from torch import nn
 from torch.utils.data import Dataset
-from torchaudio import datasets, transforms
+from torchaudio import datasets
 from torchaudio.datasets.speechcommands import FOLDER_IN_ARCHIVE
 from tqdm.auto import tqdm
 
 from topography.utils import AverageMeter
+from topography.utils.data.common import default_audio_transform
 
 _LABELS: Dict[str, int] = {
     "backward": 0,
@@ -53,7 +54,7 @@ _LABELS: Dict[str, int] = {
 }
 
 
-class Metadata(NamedTuple):
+class SpeechCommandsMetadata(NamedTuple):
     """Metadata container."""
 
     idx: int
@@ -79,7 +80,7 @@ def _build_dataset(
     dest: str,
     sample_rate: int,
     download: bool,
-    transform: nn.Module,
+    process_fn: nn.Module,
 ) -> None:  # pragma: no cover
     """Build the processed Speech Commands dataset.
     Samples are padded with zeros for them to last for exactly one second.
@@ -95,7 +96,7 @@ def _build_dataset(
         Sample rate of Speech Commands.
     download : bool
         Whether to download the dataset if it is not found at root path.
-    transform : nn.Module
+    process_fn : nn.Module
         Transformation to apply to the audio.
 
     Raises
@@ -118,7 +119,7 @@ def _build_dataset(
         for idx, sample in enumerate(tqdm(dataset, desc=subset, leave=False)):
             n_digits = len(str(len(dataset)))
             waveform, *other = sample
-            metadata = Metadata(idx, *other)
+            metadata = SpeechCommandsMetadata(idx, *other)
             all_metadata[subset].append(str(metadata))
 
             # Check the sample and padding if necessary
@@ -134,7 +135,7 @@ def _build_dataset(
                 )
 
             # Transformation and update the statistics
-            feats = transform(waveform)
+            feats = process_fn(waveform)
             torch.save(feats, out.joinpath(f"{idx:0{n_digits}d}.pt"))
             if subset == "training":
                 mean.update(feats.mean())
@@ -155,43 +156,6 @@ def _build_dataset(
             file.write("\n".join(metadata))
 
 
-def _default_transform(
-    sample_rate: int,
-    window_duration: int = 25e-3,
-    hop_duration: int = 10e-3,
-    n_mels: int = 64,
-) -> nn.Module:
-    """Default transformation on waveforms for SpeechCommands: returns
-    log-compressed mel-spectrograms with, by default, 64 channels,
-    computed with a window of 25 ms every 10 ms.
-
-    Parameters
-    ----------
-    sample_rate : int
-        Sample rate of audio signal.
-    window_duration : int, optional
-        Duration of each window in seconds, by default 25e-3.
-    hop_duration : int, optional
-        Duration between successive windows, by default 10e-3.
-    n_mels : int, optional
-        Number of mel filterbanks., by default 64.
-
-    Returns
-    -------
-    nn.Module
-        Default transformation.
-    """
-    return nn.Sequential(
-        transforms.MelSpectrogram(
-            sample_rate=sample_rate,
-            n_fft=int(window_duration * sample_rate),
-            hop_length=int(hop_duration * sample_rate),
-            n_mels=n_mels,
-        ),
-        transforms.AmplitudeToDB(),
-    )
-
-
 class SpeechCommands(Dataset):
     """Creates a dataset for pre-processed Speech Commands."""
 
@@ -204,9 +168,9 @@ class SpeechCommands(Dataset):
         subset: str,
         build: bool = False,
         download: bool = True,
-        transform: Optional[nn.Module] = None,
+        process_fn: Optional[nn.Module] = None,
     ) -> None:
-        """Create the dataset. If `build`, apply the `transform`
+        """Create the dataset. If `build`, apply the `process_fn`
         to the waveforms to pre-process the data.
         The samples are then normalized according to statistics
         computed on the training set.
@@ -225,7 +189,7 @@ class SpeechCommands(Dataset):
         download : bool, optional
             Whether to download data for torchaudio SPEECHCOMMANDS,
             by default True.
-        transform : Optional[nn.Module], optional
+        process_fn : Optional[nn.Module], optional
             Transform used to pre-process the input data.
             If it is not specified, the default transformation
             is to make log-compressed mel-spectrograms with 64 channels,
@@ -240,10 +204,10 @@ class SpeechCommands(Dataset):
             raise ValueError(f"Invalid subset {subset}.")
         self.subset = subset
         if build:  # pragma: no cover
-            if transform is None:
-                transform = _default_transform(self.SAMPLE_RATE)
+            if process_fn is None:
+                process_fn = default_audio_transform(self.SAMPLE_RATE)
             _build_dataset(
-                root, self.root, self.SAMPLE_RATE, download, transform
+                root, self.root, self.SAMPLE_RATE, download, process_fn
             )
 
         stats = torch.load(self.root.joinpath("training_stats.pt"))
@@ -255,7 +219,9 @@ class SpeechCommands(Dataset):
         ) as file:
             for line in file.read().splitlines():
                 idx, *other = line.split(",")
-                self.metadata[int(idx)] = Metadata.from_csv(idx, *other)
+                self.metadata[int(idx)] = SpeechCommandsMetadata.from_csv(
+                    idx, *other
+                )
 
         self._path = self.root.joinpath(self.subset)
         self._n_digits = len(str(len(self.metadata)))
@@ -274,6 +240,8 @@ class SpeechCommands(Dataset):
         Tuple[torch.Tensor, int]
             Normalized features and label.
         """
+        if index >= len(self):
+            raise IndexError
         metadata = self.metadata[index]
         path = self._path.joinpath(f"{index:0{self._n_digits}d}.pt")
         normalized = (torch.load(path) - self._mean) / self._std
