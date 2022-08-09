@@ -27,56 +27,68 @@ def plot_processed_recap(
         return
     prod = [
         (dataset, model)
-        for dataset in dataframe.dataset.unique()
         for model in dataframe.model.unique()
+        for dataset in dataframe.dataset.unique()
     ]
     nrows = len(dataframe.dataset.unique())
     ncols = len(dataframe.model.unique())
-    fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize=(15, 15))
-    for k, (dataset, model) in enumerate(prod):
-        i, j = k % nrows, k // nrows
 
-        df_model = dataframe[
-            (dataframe.model == model)
-            & (dataframe.dataset == dataset)
-            & dataframe.topographic
-        ]
-        reference = dataframe[
-            (dataframe.model == model)
-            & (dataframe.dataset == dataset)
-            & ~dataframe.topographic
-        ].test_acc.mean()
-        if df_model.empty:
-            continue
-        if not np.isnan(reference):
-            ax[i, j].hlines(
-                reference,
-                df_model.lambd.min(),
-                df_model.lambd.max(),
-                label="ref",
-                colors="k",
-                zorder=1,
-            )
+    for norm in dataframe.norm.dropna().unique():
+        fig, ax = plt.subplots(
+            nrows=nrows,
+            ncols=ncols,
+            figsize=(15, 15),
+            sharex="row",
+            sharey="row",
+        )
+        for k, (dataset, model) in enumerate(prod):
+            i, j = k % nrows, k // nrows
 
-        for dim in sorted(df_model.dimension.unique()):
-            subdf = df_model[df_model.dimension == dim]
-            ax[i, j].scatter(
-                subdf.lambd,
-                subdf.test_acc,
-                label=f"dim={int(dim)}",
-                alpha=0.3,
-                edgecolors="none",
-                linewidths=2,
-                s=50,
-                zorder=2,
-            )
-        ax[i, j].legend(loc="lower left")
-        ax[i, j].set_title(f"{model}, {dataset}")
-        ax[i, j].set_xscale("log")
-        ax[i, j].set_xlabel("lambda")
-        ax[i, j].set_ylabel("Test acc")
-    fig.savefig(path, bbox_inches="tight")
-    plt.close()
+            df_model = dataframe[
+                (dataframe.model == model)
+                & (dataframe.dataset == dataset)
+                & dataframe.topographic
+            ]
+            reference = dataframe[
+                (dataframe.model == model)
+                & (dataframe.dataset == dataset)
+                & ~dataframe.topographic
+            ].test_acc.mean()
+            if df_model.empty:
+                continue
+            if not np.isnan(reference):
+                ax[i, j].hlines(
+                    reference,
+                    df_model.lambd.min(),
+                    df_model.lambd.max(),
+                    label="ref",
+                    colors="k",
+                    zorder=1,
+                )
+
+            for dim in sorted(df_model.dimension.unique()):
+                subdf = df_model[
+                    (df_model.dimension == dim) & (df_model.norm == norm)
+                ]
+                ax[i, j].scatter(
+                    subdf.lambd,
+                    subdf.test_acc,
+                    label=f"dim={int(dim)}",
+                    alpha=0.3,
+                    edgecolors="none",
+                    linewidths=2,
+                    s=50,
+                    zorder=2,
+                )
+            ax[i, j].legend(loc="lower left")
+            ax[i, j].set_title(f"{model}, {dataset}")
+            ax[i, j].set_xscale("log")
+            ax[i, j].set_xlabel("lambda")
+            ax[i, j].set_ylabel("Test acc")
+        plt.suptitle(f"Norm {norm}", fontsize=20)
+        plt.tight_layout()
+        fig.savefig(path.parent / (path.stem + f"_{norm}" + path.suffix))
+        plt.close()
 
 
 def add_columns_to_recap(
