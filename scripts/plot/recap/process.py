@@ -11,7 +11,7 @@ from topography.utils import tensorboard_to_dataframe
 def plot_processed_recap(
     dataframe: pd.DataFrame, path: Path, overwrite: bool
 ) -> None:
-    """Process the recap dataframe. Plot the test accuracy as a function
+    """Process the recap dataframe. Plot the best val accuracy as a function
     of lambda, for the different models and dimension of the positions.
 
     Parameters
@@ -53,7 +53,7 @@ def plot_processed_recap(
                 (dataframe.model == model)
                 & (dataframe.dataset == dataset)
                 & ~dataframe.topographic
-            ].test_acc.mean()
+            ].val_acc.mean()
             if df_model.empty:
                 continue
             if not np.isnan(reference):
@@ -72,7 +72,7 @@ def plot_processed_recap(
                 ]
                 ax[i, j].scatter(
                     subdf.lambd,
-                    subdf.test_acc,
+                    subdf.val_acc,
                     label=f"dim={int(dim)}",
                     alpha=0.3,
                     edgecolors="none",
@@ -84,7 +84,7 @@ def plot_processed_recap(
             ax[i, j].set_title(f"{model}, {dataset}")
             ax[i, j].set_xscale("log")
             ax[i, j].set_xlabel("lambda")
-            ax[i, j].set_ylabel("Test acc")
+            ax[i, j].set_ylabel("Best val acc")
         plt.suptitle(f"Norm {norm}", fontsize=20)
         plt.tight_layout()
         fig.savefig(path.parent / (path.stem + f"_{norm}" + path.suffix))
