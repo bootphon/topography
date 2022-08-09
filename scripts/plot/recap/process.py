@@ -25,24 +25,24 @@ def plot_processed_recap(
     """
     if path.exists() and not overwrite:
         return
-    df = dataframe.dropna(axis=0)
-    df = df[df.model != "alexnet"]
     prod = [
-        (model, num_classes)
-        for model in df.model.unique()
-        for num_classes in df[df.model == model].num_classes.unique()
+        (model, dataset)
+        for model in dataframe.model.unique()
+        for dataset in dataframe[dataframe.model == model].dataset.unique()
     ]
     nrows = int(np.sqrt(len(prod)))
     ncols = len(prod) // nrows
     ncols += 1 if ncols * nrows < len(prod) else 0
     fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize=(15, 15))
-    for k, (model, num_classes) in enumerate(prod):
+    for k, (model, dataset) in enumerate(prod):
         i, j = k % nrows, k // nrows
 
-        df_model = df[(df.model == model) & (df.num_classes == num_classes)]
+        df_model = dataframe[
+            (dataframe.model == model) & (dataframe.dataset == dataset)
+        ]
         reference = dataframe[
             (dataframe.model == model)
-            & (dataframe.num_classes == num_classes)
+            & (dataframe.dataset == dataset)
             & (dataframe.topographic == False)
         ].test_acc.mean()
         if not np.isnan(reference):
@@ -55,7 +55,7 @@ def plot_processed_recap(
                 zorder=1,
             )
 
-        for dim in sorted(df.dimension.unique()):
+        for dim in sorted(dataframe.dimension.unique()):
             subdf = df_model[df_model.dimension == dim]
             ax[i, j].scatter(
                 subdf.lambd,
@@ -68,7 +68,7 @@ def plot_processed_recap(
                 zorder=2,
             )
         ax[i, j].legend(loc="lower left")
-        ax[i, j].set_title(f"{model}, {num_classes}")
+        ax[i, j].set_title(f"{model}, {dataset}")
         ax[i, j].set_xscale("log")
         ax[i, j].set_xlabel("lambda")
         ax[i, j].set_ylabel("Test acc")
