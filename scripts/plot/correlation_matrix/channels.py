@@ -198,8 +198,7 @@ if __name__ == "__main__":
 
     config = ChannelsCorrelationConfig(
         logdir=logdir,
-        # data=config_json["data"],
-        data="~/Documents/CoML/data",
+        data=config_json["data"],
         dataset=config_json["dataset"],
         idx=args.idx,
         layer_name=args.layer_name,
