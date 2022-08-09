@@ -5,9 +5,8 @@ For each considered channel, it plots a comparison
 between the cosine similarity of its output and the outputs of the
 other channels, and the target inverse distance we wish to fit.
 It also plots the resulting loss. This is done across every channel.
-For now it only works on CIFAR.
 A possible extension would be to look at the mean correlation
-accross the entire dataset, and not just at one image.
+across the entire dataset, and not just at one image.
 """
 import argparse
 import dataclasses
@@ -16,7 +15,7 @@ import math
 import random
 import subprocess
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,6 +26,7 @@ from tqdm.auto import tqdm
 
 from topography import TopographicModel, models
 from topography.core.loss import _channel_correlation
+from topography.utils.data import BirdDCASE, SpeechCommands
 
 DIMENSION: int = 2
 
@@ -37,15 +37,15 @@ class ChannelsCorrelationConfig:
 
     logdir: Path  # Output directory.
     data: str  # Data directory.
+    dataset: str  # Dataset used
 
     idx: int  # Image index in the training set.
     layer_name: str  # Name of the considered layer
     state_dict: Path  # State dict path
 
     model: str  # Model to use.
-    num_classes: int  # Number of CIFAR classes, either 10 or 100.
     norm: str  # Which norm between positions to use.
-    normalization: List  # CIFAR image normalization.
+    normalization: Optional[List] = None  # CIFAR image normalization.
 
     framerate: int = 10  # Framerate for the recap video
 
@@ -54,24 +54,44 @@ def main(config: ChannelsCorrelationConfig) -> None:
     plotdir = config.logdir / "plot" / "correlation_matrix" / "channels"
     plotdir.mkdir(exist_ok=True, parents=True)
 
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize(*config.normalization)]
-    )
-    dataset = (
-        datasets.CIFAR10 if config.num_classes == 10 else datasets.CIFAR100
-    )
-    img = dataset(
-        root=config.data, train=True, download=False, transform=transform
-    )[config.idx][0]
+    if config.dataset.startswith("cifar"):
+        transform = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize(*config.normalization)]
+        )
+        num_classes = int(config.dataset.removeprefix("cifar"))
+        in_channels = 3
+        dataset = datasets.CIFAR10 if num_classes == 10 else datasets.CIFAR100
+        inp = dataset(
+            root=config.data, train=True, download=False, transform=transform
+        )[config.idx][0]
+
+    elif config.dataset == "speechcommands":
+        num_classes, in_channels = 35, 1
+        inp = SpeechCommands(config.data, subset="training")[config.idx][0]
+
+    elif config.dataset == "birddcase":
+        num_classes, in_channels = 2, 1
+        inp = BirdDCASE(config.data, subset="training")[config.idx][0]
+
+    else:
+        raise ValueError(f"Wrong dataset {config.dataset}")
+
     name = config.layer_name
 
     state_dict = torch.load(config.state_dict, map_location="cpu")
-    base_model = getattr(models, config.model)(num_classes=config.num_classes)
-    model = TopographicModel(base_model, dimension=DIMENSION, norm=config.norm)
+    base_model = getattr(models, config.model)(
+        num_classes=num_classes, in_channels=in_channels
+    )
+    model = TopographicModel(
+        base_model,
+        dimension=DIMENSION,
+        norm=config.norm,
+        topographic_layer_names=models.topographic_layer_names(config.model),
+    )
     model.load_state_dict(state_dict)
     model.eval()
 
-    model(img.unsqueeze(0))
+    model(inp.unsqueeze(0))
     activation, inv_dist = model.activations[name], model.inverse_distance[name]
     correlation = _channel_correlation(activation, 1e-8).detach()
     correlation = (correlation[0] + correlation[0].T).fill_diagonal_(1)
@@ -114,7 +134,7 @@ def main(config: ChannelsCorrelationConfig) -> None:
         ax[2].axis("off")
         fig.colorbar(im2, cax=cax2)
 
-        fig.suptitle(f"Channel {channel_idx}")
+        fig.suptitle(f"Layer {name}, channel {channel_idx}.")
         fig.savefig(plotdir / f"corr_matrix_{channel_idx:04d}.png")
         plt.close()
 
@@ -178,13 +198,14 @@ if __name__ == "__main__":
 
     config = ChannelsCorrelationConfig(
         logdir=logdir,
-        data=config_json["data"],
+        # data=config_json["data"],
+        data="~/Documents/CoML/data",
+        dataset=config_json["dataset"],
         idx=args.idx,
         layer_name=args.layer_name,
         model=config_json["model"],
-        num_classes=config_json["num_classes"],
         norm=config_json["norm"],
-        normalization=config_json["normalization"],
+        normalization=config_json.get("normalization"),
         state_dict=state_dict,
         framerate=args.framerate,
     )
