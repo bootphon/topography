@@ -84,7 +84,7 @@ def main(config: RecapConfig) -> None:
             ) as file:
                 file.write("".join(lines))
             for mode in ("val", "test"):
-                recap[f"{mode}_acc"] = max(accuracies[mode])
+                recap[f"{mode}_acc"] = max(accuracies[mode], default=None)
             recaps.append(recap)
         except FileNotFoundError as error:
             print(str(error))
