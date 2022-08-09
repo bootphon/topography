@@ -3,6 +3,7 @@ import argparse
 import dataclasses
 import itertools
 import json
+from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
@@ -64,25 +65,26 @@ def main(config: RecapConfig) -> None:
                 out.joinpath("config.json"), "w", encoding="utf-8"
             ) as file:
                 json.dump(recap, file)
-            # Recover the test accuracy
-            test_acc = None
+            # Recover the test and val accuracy
+            accuracies = defaultdict(list)
             with open(
                 parent.joinpath("summary.log"), "r", encoding="utf-8"
             ) as file:
                 lines = file.readlines()
-                for mode in ("val", "test"):
-                    for line in lines[::-1]:
+                for line in lines:
+                    for mode in ("val", "test"):
                         if mode in line and "acc" in line:
                             for part in line.strip().split(", "):
                                 if part.startswith("acc"):
-                                    recap[f"{mode}_acc"] = float(
-                                        part.removeprefix("acc")
+                                    accuracies[mode].append(
+                                        float(part.removeprefix("acc"))
                                     )
-                            break
             with open(
                 out.joinpath("summary.log"), "w", encoding="utf-8"
             ) as file:
                 file.write("".join(lines))
+            for mode in ("val", "test"):
+                recap[f"{mode}_acc"] = max(accuracies[mode])
             recaps.append(recap)
         except FileNotFoundError as error:
             print(str(error))
