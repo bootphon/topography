@@ -40,7 +40,7 @@ def plot_processed_recap(
         df_model = dataframe[
             (dataframe.model == model)
             & (dataframe.dataset == dataset)
-            & dataframe.topographic
+            & (dataframe.topographic == True)
         ]
         reference = dataframe[
             (dataframe.model == model)
