@@ -144,7 +144,7 @@ if __name__ == "__main__":
 
     if not output.exists():
         raise ValueError("Given argument 'output' is not a valid directory.")
-    dataframe = pd.read_csv(output.joinpath("full_recap.csv"))
+    dataframe = pd.read_csv(output.joinpath("full_recap.csv"), index_col=0)
     plot_processed_recap(
         dataframe, output.joinpath("processed_recap.pdf"), overwrite
     )
