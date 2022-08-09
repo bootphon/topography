@@ -38,7 +38,9 @@ def plot_processed_recap(
         i, j = k % nrows, k // nrows
 
         df_model = dataframe[
-            (dataframe.model == model) & (dataframe.dataset == dataset)
+            (dataframe.model == model)
+            & (dataframe.dataset == dataset)
+            & dataframe.topographic
         ]
         reference = dataframe[
             (dataframe.model == model)
