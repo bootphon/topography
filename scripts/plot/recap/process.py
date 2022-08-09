@@ -1,3 +1,7 @@
+"""Script to process the recap made with `run.py`: new plots and new columns
+in the csv.
+"""
+
 import argparse
 from pathlib import Path
 
@@ -12,7 +16,8 @@ def plot_processed_recap(
     dataframe: pd.DataFrame, path: Path, overwrite: bool
 ) -> None:
     """Process the recap dataframe. Plot the best val accuracy as a function
-    of lambda, for the different models and dimension of the positions.
+    of lambda, for each dimension, for each pair of model and dataset; and
+    for every norm used.
 
     Parameters
     ----------
@@ -94,6 +99,23 @@ def plot_processed_recap(
 def add_columns_to_recap(
     dataframe: pd.DataFrame, path: Path, overwrite: bool
 ) -> None:
+    """Adds columns to the recap CSV. For now, only adds the weight of
+    the topographic loss compared to the cross entropy.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        Dataframe containing the recap of the experiments.
+    path : Path
+        Path to save the recap with the new columns.
+    overwrite : bool
+        Whether to overwrite existing files or not.
+
+    Raises
+    ------
+    ValueError
+        If the path to the TensorBoard file is invalid.
+    """
     if path.exists() and not overwrite:
         return
     scale = []
