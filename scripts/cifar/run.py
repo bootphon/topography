@@ -60,7 +60,8 @@ class CIFARConfig:
         ValueError
             If the specified number of classes is not 10 or 100,
             the base model is not implemented,
-            or if the model is topographic and lambd has not been specified.
+            or if the model is topographic and a topographic parameter
+            has not been specified.
         """
         if self.num_classes not in (10, 100):
             raise ValueError(

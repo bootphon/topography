@@ -50,9 +50,9 @@ class BirdDCASEConfig:
         Raises
         ------
         ValueError
-            If the specified number of classes is not 10 or 100,
-            the base model is not implemented,
-            or if the model is topographic and lambd has not been specified.
+            If the base model is not implemented,
+            or if the model is topographic and a topographic parameter
+            has not been specified.
         """
         if self.topographic and (
             self.lambd is None or self.norm is None or self.dimension is None
