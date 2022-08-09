@@ -13,7 +13,7 @@ from topography.training.training import accuracy
 from topography.utils import LinearWarmupCosineAnnealingLR
 
 
-@pytest.mark.parametrize("model_name", ["resnet18", "vgg16_bn"])
+@pytest.mark.parametrize("model_name", ["resnet18", "vgg16_bn", "densenet121"])
 def test_vision(model_name):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
@@ -68,7 +68,7 @@ def test_vision(model_name):
     writer.close()
 
 
-@pytest.mark.parametrize("model_name", ["resnet18", "vgg16_bn"])
+@pytest.mark.parametrize("model_name", ["resnet18", "vgg16_bn", "densenet121"])
 def test_vision_topographic(model_name):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
@@ -78,7 +78,10 @@ def test_vision_topographic(model_name):
     lr, epochs = 0.01, 30
     cifar_classes, num_samples, shape = 10, 4, [3, 32, 32]
     device = torch.device("cpu")
-    model = TopographicModel(getattr(models, model_name)(cifar_classes))
+    model = TopographicModel(
+        getattr(models, model_name)(cifar_classes),
+        topographic_layer_names=models.topographic_layer_names(model_name),
+    )
     optimizer = SGD(model.parameters(), lr=lr)
     scheduler = LinearWarmupCosineAnnealingLR(
         optimizer, warmup_epochs=0.3 * epochs, max_epochs=epochs
