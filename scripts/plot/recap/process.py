@@ -26,15 +26,14 @@ def plot_processed_recap(
     if path.exists() and not overwrite:
         return
     prod = [
-        (model, dataset)
+        (dataset, model)
+        for dataset in dataframe.dataset.unique()
         for model in dataframe.model.unique()
-        for dataset in dataframe[dataframe.model == model].dataset.unique()
     ]
-    nrows = int(np.sqrt(len(prod)))
-    ncols = len(prod) // nrows
-    ncols += 1 if ncols * nrows < len(prod) else 0
+    nrows = len(dataframe.dataset.unique())
+    ncols = len(dataframe.model.unique())
     fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize=(15, 15))
-    for k, (model, dataset) in enumerate(prod):
+    for k, (dataset, model) in enumerate(prod):
         i, j = k % nrows, k // nrows
 
         df_model = dataframe[
@@ -47,6 +46,8 @@ def plot_processed_recap(
             & (dataframe.dataset == dataset)
             & ~dataframe.topographic
         ].test_acc.mean()
+        if np.isnan(df_model):
+            continue
         if not np.isnan(reference):
             ax[i, j].hlines(
                 reference,
@@ -74,7 +75,7 @@ def plot_processed_recap(
         ax[i, j].set_xscale("log")
         ax[i, j].set_xlabel("lambda")
         ax[i, j].set_ylabel("Test acc")
-    fig.savefig(path)
+    fig.savefig(path, bbox_inches="tight")
     plt.close()
 
 
