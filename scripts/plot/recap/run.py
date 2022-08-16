@@ -109,6 +109,7 @@ if __name__ == "__main__":
         "-o",
         "--output",
         type=str,
+        required=True,
         help="Output directory containing the recaps.",
     )
 
