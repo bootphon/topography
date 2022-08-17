@@ -125,6 +125,9 @@ if __name__ == "__main__":
     experiments = Path(args.experiments).resolve()
     output = Path(args.output).resolve()
     config = RecapConfig(
-        experiments=experiments, output=output, overwrite=args.overwrite
+        experiments=experiments,
+        output=output,
+        start_path=args.start_path,
+        overwrite=args.overwrite,
     )
     main(config)
