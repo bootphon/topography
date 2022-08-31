@@ -9,3 +9,4 @@ ipykernel
 tqdm
 autopep8
 scikit-learn
+lucent
