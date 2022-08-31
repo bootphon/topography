@@ -40,6 +40,7 @@ def run(model: TopographicModel, plotdir: Path, in_channels: int) -> None:
     """
     plotdir.mkdir(exist_ok=True, parents=True)
     param_f = lambda: param.image(
+        128,
         channels=in_channels,
         fft=FFT,
         decorrelate=DECORRELATE,
