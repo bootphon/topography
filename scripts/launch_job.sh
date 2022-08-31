@@ -1,7 +1,8 @@
 #!/bin/bash
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-#SBATCH --time=03:00:00
+#SBATCH --time=05:00:00
+#SBATCH -C v100-32g
 
 set -e # fail fully on first line failure
 set -x
@@ -22,9 +23,6 @@ else
     # Get the line corresponding to the task id
     JOB_CMD=$(head -n ${SLURM_ARRAY_TASK_ID} "$1" | tail -1)
 fi
-
-# source /shared/apps/anaconda3/etc/profile.d/conda.sh
-# conda activate topo
 
 module load python/3.10.4
 conda activate topography
