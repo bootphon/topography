@@ -34,7 +34,7 @@ if __name__ == "__main__":
                 f" --data {datadir} --seed {args.seed}"
                 f" --model {model} --num_classes {num_classes}\n"
             )
-        for model, num_classes, dim, norm, lambd in product(
+        for model, num_classes, dim, norm, lambd, position_scheme in product(
             models, cifar_classes, dimensions, norms, lambdas, position_schemes
         ):
             path = (
@@ -45,5 +45,6 @@ if __name__ == "__main__":
                 f"python {script} --log {logdir / path}"
                 f" --data {datadir} --seed {args.seed} --model {model}"
                 f" --num_classes {num_classes} --topographic --norm {norm}"
+                f" --position_scheme {position_scheme}"
                 f" --lambd {lambd} --dimension {dim}\n"
             )

@@ -43,5 +43,6 @@ if __name__ == "__main__":
                 f"python {script} --log {logdir / path}"
                 f" --data {datadir} --seed {args.seed} --model {model}"
                 f" --topographic --norm {norm}"
+                f" --position_scheme {position_scheme}"
                 f" --lambd {lambd} --dimension {dim}\n"
             )
