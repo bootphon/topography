@@ -30,6 +30,7 @@ class SpeechCommandsConfig:
     lambd: Optional[float] = None  # Weight of the topographic loss.
     dimension: Optional[int] = None  # Dimension of the positions.
     norm: Optional[str] = None  # Which norm between positions to use.
+    position_scheme: Optional[str] = None  # How to assign positions.
 
     epochs: int = 12  # Number of training epochs.
     batch_size: int = 256  # Batch size.
@@ -111,6 +112,7 @@ def main(config: SpeechCommandsConfig) -> None:
             base_model,
             dimension=config.dimension,
             norm=config.norm,
+            position_scheme=config.position_scheme,
             topographic_layer_names=models.topographic_layer_names(
                 config.model
             ),
@@ -199,6 +201,9 @@ if __name__ == "__main__":
         "--norm",
         type=str,
         help="Which norm between positions to use.",
+    )
+    parser.add_argument(
+        "--position_scheme", type=str, help="How to assign positions."
     )
 
     args = parser.parse_args()

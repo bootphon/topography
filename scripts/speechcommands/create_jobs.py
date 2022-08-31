@@ -22,6 +22,7 @@ if __name__ == "__main__":
     models = ["resnet18", "vgg16_bn", "densenet121"]
     dimensions = [1, 2, 3]
     norms = ["euclidean", "l1"]
+    position_schemes = ["hypercube"]
     lambdas = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 0.1, 0.5, 1, 5]
 
     with open(jobs, "w", encoding="utf-8") as file:
@@ -31,8 +32,8 @@ if __name__ == "__main__":
                 f"python {script} --log {logdir / path}"
                 f" --data {datadir} --seed {args.seed} --model {model}\n"
             )
-        for model, dim, norm, lambd in product(
-            models, dimensions, norms, lambdas
+        for model, dim, norm, lambd, position_scheme in product(
+            models, dimensions, norms, lambdas, position_schemes
         ):
             path = (
                 f"speechcommands/{model}/"

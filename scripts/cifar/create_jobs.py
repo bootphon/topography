@@ -23,6 +23,7 @@ if __name__ == "__main__":
     cifar_classes = [10, 100]
     dimensions = [1, 2, 3]
     norms = ["euclidean", "l1"]
+    position_schemes = ["hypercube"]
     lambdas = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 0.1, 0.5, 1, 5]
 
     with open(jobs, "w", encoding="utf-8") as file:
@@ -34,7 +35,7 @@ if __name__ == "__main__":
                 f" --model {model} --num_classes {num_classes}\n"
             )
         for model, num_classes, dim, norm, lambd in product(
-            models, cifar_classes, dimensions, norms, lambdas
+            models, cifar_classes, dimensions, norms, lambdas, position_schemes
         ):
             path = (
                 f"cifar{num_classes}/{model}/"
