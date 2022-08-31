@@ -7,14 +7,14 @@ import random
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from lucent.optvis import param, render
 from PIL import Image
-from torchvision import datasets
+from torchvision import datasets, transforms
 from tqdm.auto import tqdm
 
 from topography import TopographicModel, models
@@ -29,7 +29,7 @@ DECORRELATE: bool = True
 
 
 def run(
-    model: TopographicModel, plotdir: Path, param_f: Optional[Callable] = None
+    model: TopographicModel, plotdir: Path, img_size: Tuple[int, int, int]
 ) -> None:
     """Find the highest acitvating images for every channel of every
     Conv2d layer with topography.
@@ -49,12 +49,18 @@ def run(
             # image_f - a function that returns an image as a tensor
         ```
     """
-
     plotdir.mkdir(exist_ok=True, parents=True)
+    param_f = lambda: param.image(
+        w=img_size[2],
+        h=img_size[1],
+        channels=img_size[0],
+        fft=FFT,
+        decorrelate=DECORRELATE,
+    )
     for layer_name, inv_dist in model.inverse_distance.items():
         out_channels = inv_dist.shape[0]
         layer = layer_name.replace(".", "_")
-        for channel in tqdm(range(out_channels), desc="Render vis"):
+        for channel in tqdm(range(out_channels), desc=f"Render {layer}"):
             render.render_vis(
                 model,
                 f"model_{layer}:{channel}",
@@ -63,6 +69,7 @@ def run(
                 save_image=True,
                 image_name=plotdir / f"{layer}-{channel}.png",
                 progress=False,
+                fixed_image_size=(img_size[1], img_size[2]),
             )
 
 
@@ -112,7 +119,9 @@ def process(plotdir: Path) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--log", type=str, help="Logging directory")
+    parser.add_argument(
+        "--log", type=str, required=True, help="Logging directory"
+    )
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     args = parser.parse_args()
     logdir = Path(args.log).resolve()
@@ -130,10 +139,11 @@ if __name__ == "__main__":
 
     dataset = config["dataset"]
     if dataset.startswith("cifar"):
-        num_classes = int(dataset.removeprefix("cifar"))
-        in_channels = 3
+        num_classes, in_channels = int(dataset.removeprefix("cifar")), 3
         dataset = datasets.CIFAR10 if num_classes == 10 else datasets.CIFAR100
-        inp = dataset(root=config["data"], train=True, download=False)[0][0]
+        inp = transforms.ToTensor()(
+            dataset(root=config["data"], train=True, download=False)[0][0]
+        )
     elif dataset == "speechcommands":
         num_classes, in_channels = 35, 1
         inp = SpeechCommands(config["data"], subset="training")[0][0]
@@ -142,13 +152,6 @@ if __name__ == "__main__":
         inp = BirdDCASE(config["data"], subset="training")[0][0]
     else:
         raise ValueError(f"Wrong dataset {dataset}")
-    param_f = lambda: param.image(
-        w=inp.shape[0],
-        h=inp.shape[1],
-        channels=in_channels,
-        fft=FFT,
-        decorrelate=DECORRELATE,
-    )
 
     model_name = config["model"]
     base_model = getattr(models, model_name)(
@@ -175,5 +178,5 @@ if __name__ == "__main__":
         base_model.load_state_dict(state_dict)
         model = TopographicModel(base_model, topo_names).eval().to(device)
 
-    run(model, logdir / "plot/lucent", param_f)
+    run(model, logdir / "plot/lucent", inp.shape)
     process(logdir / "plot/lucent")
