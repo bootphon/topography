@@ -7,19 +7,16 @@ import random
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from lucent.optvis import param, render
 from PIL import Image
-from torchvision import datasets, transforms
 from tqdm.auto import tqdm
 
 from topography import TopographicModel, models
 from topography.core.distance import hypercube
-from topography.utils.data import BirdDCASE, SpeechCommands
 
 # Cf https://distill.pub/2017/feature-visualization/#preconditioning
 # in order to understand these parameters and how alternative
@@ -28,9 +25,7 @@ FFT: bool = True
 DECORRELATE: bool = True
 
 
-def run(
-    model: TopographicModel, plotdir: Path, img_size: Tuple[int, int, int]
-) -> None:
+def run(model: TopographicModel, plotdir: Path, in_channels: int) -> None:
     """Find the highest acitvating images for every channel of every
     Conv2d layer with topography.
 
@@ -40,20 +35,12 @@ def run(
         The topographic model.
     plotdir : Path
         The directory where to save the resulting images.
-    param_f : Optional[Callable]
-        Function used in `lucent.optvis.render.render_vis`.
-        Quote from `render_vis`:
-        ```
-            # param_f is a function that should return two things
-            # params - parameters to update, which we pass to the optimizer
-            # image_f - a function that returns an image as a tensor
-        ```
+    in_channels: int
+        Number of channels in the image (either 1 or 3).
     """
     plotdir.mkdir(exist_ok=True, parents=True)
     param_f = lambda: param.image(
-        w=img_size[2],
-        h=img_size[1],
-        channels=img_size[0],
+        channels=in_channels,
         fft=FFT,
         decorrelate=DECORRELATE,
     )
@@ -69,7 +56,6 @@ def run(
                 save_image=True,
                 image_name=plotdir / f"{layer}-{channel}.png",
                 progress=False,
-                fixed_image_size=(img_size[1], img_size[2]),
             )
 
 
@@ -140,16 +126,10 @@ if __name__ == "__main__":
     dataset = config["dataset"]
     if dataset.startswith("cifar"):
         num_classes, in_channels = int(dataset.removeprefix("cifar")), 3
-        dataset = datasets.CIFAR10 if num_classes == 10 else datasets.CIFAR100
-        inp = transforms.ToTensor()(
-            dataset(root=config["data"], train=True, download=False)[0][0]
-        )
     elif dataset == "speechcommands":
         num_classes, in_channels = 35, 1
-        inp = SpeechCommands(config["data"], subset="training")[0][0]
     elif dataset == "birddcase":
         num_classes, in_channels = 2, 1
-        inp = BirdDCASE(config["data"], subset="training")[0][0]
     else:
         raise ValueError(f"Wrong dataset {dataset}")
 
@@ -178,5 +158,5 @@ if __name__ == "__main__":
         base_model.load_state_dict(state_dict)
         model = TopographicModel(base_model, topo_names).eval().to(device)
 
-    run(model, logdir / "plot/lucent", inp.shape)
+    run(model, logdir / "plot/lucent", in_channels)
     process(logdir / "plot/lucent")
