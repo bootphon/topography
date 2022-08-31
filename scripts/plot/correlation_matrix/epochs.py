@@ -121,11 +121,12 @@ def main(config: EpochsCorrelationConfig) -> None:
         channel_inv_dist[:num_channels] = inv_dist[config.channel_idx]
         channel_inv_dist = channel_inv_dist.reshape(num_axis, num_axis)
 
-        ax[0].imshow(channel_corr, norm=norm_corr, cmap="twilight")
+        imshow_kwargs = dict(norm=norm_corr, cmap="twilight", origin="lower")
+        ax[0].imshow(channel_corr, **imshow_kwargs)
         ax[0].set_title(r"$Corr$")
         ax[0].axis("off")
 
-        im1 = ax[1].imshow(channel_inv_dist, norm=norm_corr, cmap="twilight")
+        im1 = ax[1].imshow(channel_inv_dist, **imshow_kwargs)
         ax[1].set_title(r"$\frac{1}{d+1}$")
         ax[1].axis("off")
         fig.colorbar(im1, cax=cax1)
@@ -133,7 +134,7 @@ def main(config: EpochsCorrelationConfig) -> None:
         loss = (channel_corr - channel_inv_dist) ** 2
         norm_loss = Normalize(vmin=loss.min(), vmax=loss.max())
 
-        im2 = ax[2].imshow(loss, cmap="plasma", norm=norm_loss)
+        im2 = ax[2].imshow(loss, cmap="plasma", norm=norm_loss, origin="lower")
         ax[2].set_title(r"$Loss = (Corr - \frac{1}{d+1})^2$")
         ax[2].axis("off")
         fig.colorbar(im2, cax=cax2)
