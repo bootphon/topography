@@ -3,20 +3,23 @@ import argparse
 import dataclasses
 import itertools
 import json
-from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
 from PIL import Image
+
+from topography.utils import tensorboard_to_dataframe
 
 
 @dataclasses.dataclass(frozen=True)
 class RecapConfig:
     experiments: Path  # Path to the folder containing all the experiments.
     output: Path  # Path to the output folder, where the recaps will be.
-    # Start of the experiments path, used for parsing the file names.
-    start_path: str = "experiments"
     overwrite: bool = False  # Whether to overwrite existing files or not.
+
+
+def logdir_to_recap_path(logdir: Path, start_path: str) -> str:
+    return "_".join(logdir.parts[logdir.parts.index(start_path) + 1 :])
 
 
 def main(config: RecapConfig) -> None:
@@ -29,22 +32,23 @@ def main(config: RecapConfig) -> None:
     """
     recaps = []
     config.output.mkdir(exist_ok=True)
+    start_path = config.experiments.name
+
     # Key function for itertools.groupby
     # Used to group plots together: plots that are to be grouped
     # have their category specified at the beginning of the file name
     # until a "_" is reached.
     keyfunc = lambda path: path.name.split("_")[0]
-    for path in config.experiments.rglob("tensorboard"):
-        parent = path.parent
-        out = config.output.joinpath(  # Directory for the current experiment
-            str(parent).split(config.start_path)[1].replace("/", "_").strip("_")
-        )
+
+    for tb_root in config.experiments.rglob("tensorboard"):
+        logdir = tb_root.parent
+        out = config.output / logdir_to_recap_path(logdir, start_path)
         out.mkdir(exist_ok=True)
         print(str(out))
 
         # Make a recap of the plots
-        if parent.joinpath("plot").exists():
-            img_root = sorted(parent.joinpath("plot").glob("*.png"))
+        if logdir.joinpath("plot").exists():
+            img_root = sorted(logdir.joinpath("plot").glob("*.png"))
             for key, group in itertools.groupby(img_root, keyfunc):
                 if not out.joinpath(f"{key}.pdf").exists() or config.overwrite:
                     images = [Image.open(img).convert("RGB") for img in group]
@@ -55,42 +59,26 @@ def main(config: RecapConfig) -> None:
                     )
         try:
             # Configuration file
-            with open(
-                parent.joinpath("environment/config.json"),
-                "r",
-                encoding="utf-8",
-            ) as file:
+            with open(logdir / "environment/config.json", "r") as file:
                 recap = json.load(file)
-            with open(
-                out.joinpath("config.json"), "w", encoding="utf-8"
-            ) as file:
-                json.dump(recap, file)
+            with open(out / "config.json", "w") as file:
+                json.dump(recap, file, indent=2)
+
             # Recover the test and val accuracy
-            accuracies = defaultdict(list)
-            with open(
-                parent.joinpath("summary.log"), "r", encoding="utf-8"
-            ) as file:
-                lines = file.readlines()
-                for line in lines:
-                    for mode in ("val", "test"):
-                        if mode in line and "acc" in line:
-                            for part in line.strip().split(", "):
-                                if part.startswith("acc"):
-                                    accuracies[mode].append(
-                                        float(part.removeprefix("acc"))
-                                    )
-            with open(
-                out.joinpath("summary.log"), "w", encoding="utf-8"
-            ) as file:
-                file.write("".join(lines))
+            tb_paths = list(tb_root.glob("*"))
+            if len(tb_paths) != 1:
+                raise ValueError(f"More than one tb file for {logdir}.")
+            df = tensorboard_to_dataframe(tb_paths[0])
             for mode in ("val", "test"):
-                recap[f"{mode}_acc"] = max(accuracies[mode], default=None)
+                recap[f"{mode}_acc"] = max(
+                    df[df.metric == f"{mode}/acc"].value, default=None
+                )
             recaps.append(recap)
         except FileNotFoundError as error:
             print(str(error))
     # CSV containing the recap of the results
     dataframe = pd.DataFrame(recaps)
-    csv_path = config.output.joinpath("full_recap.csv")
+    csv_path = config.output / "full_recap.csv"
     if not csv_path.exists() or config.overwrite:
         dataframe.to_csv(csv_path)
 
@@ -119,15 +107,10 @@ if __name__ == "__main__":
         help="Whether to overwrite existing files or not.",
     )
 
-    parser.add_argument("--start_path", type=str, default="experiments")
-
     args = parser.parse_args()
-    experiments = Path(args.experiments).resolve()
-    output = Path(args.output).resolve()
     config = RecapConfig(
-        experiments=experiments,
-        output=output,
-        start_path=args.start_path,
+        experiments=Path(args.experiments).resolve(),
+        output=Path(args.output).resolve(),
         overwrite=args.overwrite,
     )
     main(config)
