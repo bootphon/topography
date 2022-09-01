@@ -22,13 +22,13 @@ from topography import TopographicModel, models
 from topography.utils import AverageMeter
 from topography.utils.data import BirdDCASE, SpeechCommands
 
-Stats = Dict[Tuple[str, int], AverageMeter]
+Stats = Dict[Tuple[str, int], torch.Tensor]
 
 DIMENSION: int = 2
 POSITION_SCHEME: str = "hypercube"
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class CategorySelectivityConfig:
     """Category selectivity configuration"""
 
@@ -47,6 +47,27 @@ def compute_stats(
     dataloader: torch.utils.data.DataLoader,
     classes: List[int],
 ) -> Tuple[Stats, Stats]:
+    """Compute the mean and variance of the activations of each
+    channel of each topographic layer in the model across the
+    full the dataset for each class separately.
+
+    Parameters
+    ----------
+    model : TopographicModel
+        Topographic model to consider.
+    dataloader : torch.utils.data.DataLoader
+        Dataloader of the current dataset.
+    classes : List[int]
+        List of classes to consider: only samples associated to those
+        classes will contribute to the statistics.
+
+    Returns
+    -------
+    Tuple[Stats, Stats]
+        Computed statistics. Each stat is represented as a
+        dictionary associating tuples (layer_name, class_idx)
+        to tensors with the mean or variance for each channel.
+    """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
     sums_meters = {
@@ -75,7 +96,6 @@ def compute_stats(
     var = {
         key: meter.avg - mean[key] ** 2 for key, meter in squares_meters.items()
     }
-
     return mean, var
 
 
@@ -83,6 +103,22 @@ def category_selectivity(
     mean: Stats,
     var: Stats,
 ) -> Dict[Tuple[str, int, int], np.ndarray]:
+    """Compute the category selectivity given the statistics.
+
+    Parameters
+    ----------
+    mean : Stats
+        Mean activation.
+    var : Stats
+        Variance of the activations.
+
+    Returns
+    -------
+    Dict[Tuple[str, int, int], np.ndarray]
+        Category selectivity: for each (layer_name, class_idx1, class_idx2)
+        it associates a (masked) numpy array with the current selectivity
+        for each channel.
+    """
     layer_names, classes = zip(*mean.keys())
     layer_names, classes = set(layer_names), set(classes)
     all_selectivity = {}
@@ -110,21 +146,24 @@ def category_selectivity(
 
 
 def main(config: CategorySelectivityConfig) -> None:
-    """_summary_
+    """Computes the mean and variance of the activations,
+    the category selectivity and plots it.
 
     Parameters
     ----------
     config : CategorySelectivityConfig
-        _description_
+        Configuration dataclass.
 
     Raises
     ------
     ValueError
-        _description_
+        If the dataset is incorrect.
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     with open(Path(__file__).parent / "classes.json", "r") as file:
         class_names = json.load(file)[config.dataset]
+    if config.classes is None:
+        config.classes = range(len(class_names))
 
     if config.dataset.startswith("cifar"):
         transform = transforms.Compose(
@@ -186,7 +225,7 @@ def main(config: CategorySelectivityConfig) -> None:
                     continue
                 img_imshow = ax[i, j].imshow(imgs[k], norm=norm, origin="lower")
                 ax[i, j].set_title(
-                    f"{config.class_names[keys[k][1]]}, {config.class_names[keys[k][2]]}",
+                    f"{class_names[keys[k][1]]}, {class_names[keys[k][2]]}",
                     fontsize=10,
                 )
                 k += 1
@@ -218,7 +257,7 @@ if __name__ == "__main__":
         "--classes",
         type=int,
         nargs="+",
-        help="List of classes to consider if provided.",
+        help="List of the indices of classes to consider if provided.",
     )
     args = parser.parse_args()
 
