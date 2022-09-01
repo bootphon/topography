@@ -325,7 +325,7 @@ if __name__ == "__main__":  # pragma: no cover
     assert nested_cube.shape == torch.Size([256, 3])
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(projection="3d")
-    ax.scatter(*nested_cube.T, marker="o")·
+    ax.scatter(*nested_cube.T, marker="o")
     plt.show()
 
     NUM_POINTS = 7
