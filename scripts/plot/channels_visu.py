@@ -44,8 +44,10 @@ def run(
         The topographic model.
     plotdir : Path
         The directory where to save the resulting images.
-    in_channels: int
+    in_channels : int
         Number of channels in the image (either 1 or 3).
+    overwrite : bool
+        Whether to overwrite existing images or not.
     """
     plotdir.mkdir(exist_ok=True, parents=True)
     param_f = lambda: param.image(
