@@ -7,6 +7,7 @@ import random
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
+from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,8 +25,16 @@ from topography.core.distance import hypercube
 FFT: bool = True
 DECORRELATE: bool = True
 
+# Image size parameters: size of the image to optimize and size given
+# to the network. If not specified, the input image
+# will be upsampled to (224, 224) (default behavior in lucent).
+IMAGE_SIZE: Tuple[int, int] = (128, 128)
+FIXED_IMAGE_SIZE: Optional[Tuple[int, int]] = None
 
-def run(model: TopographicModel, plotdir: Path, in_channels: int) -> None:
+
+def run(
+    model: TopographicModel, plotdir: Path, in_channels: int, overwrite: bool
+) -> None:
     """Find the highest acitvating images for every channel of every
     Conv2d layer with topography.
 
@@ -40,7 +49,8 @@ def run(model: TopographicModel, plotdir: Path, in_channels: int) -> None:
     """
     plotdir.mkdir(exist_ok=True, parents=True)
     param_f = lambda: param.image(
-        128,
+        w=IMAGE_SIZE[1],
+        h=IMAGE_SIZE[0],
         channels=in_channels,
         fft=FFT,
         decorrelate=DECORRELATE,
@@ -49,6 +59,8 @@ def run(model: TopographicModel, plotdir: Path, in_channels: int) -> None:
         out_channels = inv_dist.shape[0]
         layer = layer_name.replace(".", "_")
         for channel in tqdm(range(out_channels), desc=f"Render {layer}"):
+            if not overwrite and (plotdir / f"{layer}-{channel}.png").exists():
+                continue
             render.render_vis(
                 model,
                 f"model_{layer}:{channel}",
@@ -57,6 +69,7 @@ def run(model: TopographicModel, plotdir: Path, in_channels: int) -> None:
                 save_image=True,
                 image_name=plotdir / f"{layer}-{channel}.png",
                 progress=False,
+                fixed_image_size=FIXED_IMAGE_SIZE,
             )
 
 
@@ -110,6 +123,12 @@ if __name__ == "__main__":
         "--log", type=str, required=True, help="Logging directory"
     )
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
+    parser.add_argument(
+        "--overwrite",
+        type=bool,
+        action="store_true",
+        help="Add this flag to overwrite existing images.",
+    )
     args = parser.parse_args()
     logdir = Path(args.log).resolve()
 
@@ -159,5 +178,5 @@ if __name__ == "__main__":
         base_model.load_state_dict(state_dict)
         model = TopographicModel(base_model, topo_names).eval().to(device)
 
-    run(model, logdir / "plot/lucent", in_channels)
+    run(model, logdir / "plot/lucent", in_channels, args.overwrite)
     process(logdir / "plot/lucent")
