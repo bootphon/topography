@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     workdir = Path(args.workdir).resolve()
     jobs = Path(f"./{OUTPUT}_{args.seed}.txt").resolve()
-    script = workdir / "topography/scripts/cifar/run.py"
+    script = Path(__file__).resolve().parent / "run.py"
     logdir = workdir / "experiments"
     datadir = workdir / "data"
 
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     cifar_classes = [10, 100]
     dimensions = [1, 2, 3]
     norms = ["euclidean", "l1"]
-    position_schemes = ["hypercube"]
+    position_schemes = ["hypercube", "nested", "hypersphere"]
     lambdas = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 0.1, 0.5, 1, 5]
 
     with open(jobs, "w", encoding="utf-8") as file:
@@ -37,8 +37,10 @@ if __name__ == "__main__":
         for model, num_classes, dim, norm, lambd, position_scheme in product(
             models, cifar_classes, dimensions, norms, lambdas, position_schemes
         ):
+            if position_scheme == "hypersphere" and dim == 1:
+                continue  # No sphere in dimension 1
             path = (
-                f"cifar{num_classes}/{model}/"
+                f"cifar{num_classes}/{model}/{position_scheme}/"
                 + f"dimension_{dim}/lambda_{lambd}/norm_{norm}"
             )
             file.write(
