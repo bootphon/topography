@@ -249,7 +249,7 @@ _DISTANCES: Dict[str, Callable[[torch.Tensor], torch.Tensor]] = {
 _POSITIONS: Dict[str, Callable[..., torch.Tensor]] = {
     "hypercube": hypercube,
     "nested": nested,
-    "sphere": hypersphere,
+    "hypersphere": hypersphere,
 }
 
 
