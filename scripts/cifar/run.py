@@ -33,6 +33,7 @@ class CIFARConfig:
     norm: Optional[str] = None  # Which norm between positions to use.
     position_scheme: Optional[str] = None  # How to assign positions.
 
+    dataseed: int = 0  # Seed for splitting the data in CIFAR.
     epochs: int = 100  # Number of training epochs.
     val_proportion: float = 0.1  # Proportion for the validation set
     batch_size: int = 256  # Batch size.
@@ -119,7 +120,7 @@ def main(config: CIFARConfig) -> None:
     val_set = dataset(root=config.data, train=True, transform=test_transform)
 
     num_train = len(train_set)
-    generator = torch.Generator().manual_seed(config.seed)
+    generator = torch.Generator().manual_seed(config.dataseed)
     indices = torch.randperm(num_train, generator=generator)
     split = int(np.floor(config.val_proportion * num_train))
     train_idx, val_idx = indices[split:], indices[:split]
