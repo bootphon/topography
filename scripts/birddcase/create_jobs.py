@@ -38,7 +38,7 @@ if __name__ == "__main__":
             if position_scheme == "hypersphere" and dim == 1:
                 continue  # No sphere in dimension 1
             path = (
-                f"birddacse/{model}/{position_scheme}/"
+                f"birddcase/{model}/{position_scheme}/"
                 + f"dimension_{dim}/lambda_{lambd}/norm_{norm}"
             )
             file.write(
