@@ -32,6 +32,7 @@ class BirdDCASEConfig:
     norm: Optional[str] = None  # Which norm between positions to use.
     position_scheme: Optional[str] = None  # How to assign positions.
 
+    dataseed: int = 0  # Random seed for creating data.
     duration: int = 1  # Crop duration
     split: Tuple[float, float] = (0.8, 0.1)  # Proportion for train and val
     epochs: int = 36  # Number of training epochs.
@@ -88,7 +89,7 @@ def main(config: BirdDCASEConfig) -> None:
         process=process,
         split=config.split,
         duration=config.duration,
-        seed=config.seed,
+        seed=config.dataseed,
     )
     train_loader = torch.utils.data.DataLoader(
         train_set,
@@ -102,14 +103,14 @@ def main(config: BirdDCASEConfig) -> None:
         subset="validation",
         split=config.split,
         duration=config.duration,
-        seed=config.seed,
+        seed=config.dataseed,
     )
     test_set = BirdDCASE(
         config.data,
         subset="testing",
         split=config.split,
         duration=config.duration,
-        seed=config.seed,
+        seed=config.dataseed,
     )
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
