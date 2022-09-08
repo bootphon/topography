@@ -127,7 +127,6 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument(
         "--overwrite",
-        type=bool,
         action="store_true",
         help="Add this flag to overwrite existing images.",
     )
@@ -171,14 +170,24 @@ if __name__ == "__main__":
                 + " a 2D regular grid topography."
             )
         model = (
-            TopographicModel(base_model, topographic_layer_names=topo_names)
+            TopographicModel(
+                base_model,
+                topographic_layer_names=topo_names,
+            )
             .eval()
             .to(device)
         )
         model.load_state_dict(state_dict)
     else:
         base_model.load_state_dict(state_dict)
-        model = TopographicModel(base_model, topo_names).eval().to(device)
+        model = (
+            TopographicModel(
+                base_model,
+                topographic_layer_names=topo_names,
+            )
+            .eval()
+            .to(device)
+        )
 
     run(model, logdir / "plot/lucent", in_channels, args.overwrite)
     process(logdir / "plot/lucent")
