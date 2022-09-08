@@ -192,7 +192,7 @@ def main(config: CategorySelectivityConfig) -> None:
     )
 
     base_model = getattr(models, config.model)(
-        num_classes=config.num_classes, in_channels=in_channels
+        num_classes=num_classes, in_channels=in_channels
     )
     model = TopographicModel(
         base_model,
