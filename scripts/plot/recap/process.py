@@ -30,7 +30,7 @@ def plot_processed_recap(
     """
     if path.exists() and not overwrite:
         return
-    prod = [
+    datasets_models_pairs = [
         (dataset, model)
         for model in dataframe.model.unique()
         for dataset in dataframe.dataset.unique()
@@ -46,23 +46,21 @@ def plot_processed_recap(
             sharex="row",
             sharey="row",
         )
-        for k, (dataset, model) in enumerate(prod):
-            i, j = k % nrows, k // nrows
+        for pair_index, (dataset, model) in enumerate(datasets_models_pairs):
+            row, column = pair_index % nrows, pair_index // nrows
 
-            df_model = dataframe[
-                (dataframe.model == model)
-                & (dataframe.dataset == dataset)
-                & dataframe.topographic
-            ]
-            reference = dataframe[
-                (dataframe.model == model)
-                & (dataframe.dataset == dataset)
-                & ~dataframe.topographic
-            ].val_acc.mean()
+            df_model = dataframe.query(
+                f"(model == '{model}') & (dataset == '{dataset}') & topographic"
+            )
+            reference = dataframe.query(
+                f"(model == '{model}') & (dataset == '{dataset}')"
+                f" & ~topographic"
+            ).val_acc.mean()
+
             if df_model.empty:
                 continue
             if not np.isnan(reference):
-                ax[i, j].hlines(
+                ax[row, column].hlines(
                     reference,
                     df_model.lambd.min(),
                     df_model.lambd.max(),
@@ -72,12 +70,12 @@ def plot_processed_recap(
                 )
 
             for dim in sorted(df_model.dimension.unique()):
-                subdf = df_model[
+                df_dim_norm = df_model[
                     (df_model.dimension == dim) & (df_model.norm == norm)
                 ]
-                ax[i, j].scatter(
-                    subdf.lambd,
-                    subdf.val_acc,
+                ax[row, column].scatter(
+                    df_dim_norm.lambd,
+                    df_dim_norm.val_acc,
                     label=f"dim={int(dim)}",
                     alpha=0.3,
                     edgecolors="none",
@@ -85,11 +83,11 @@ def plot_processed_recap(
                     s=50,
                     zorder=2,
                 )
-            ax[i, j].legend(loc="lower left")
-            ax[i, j].set_title(f"{model}, {dataset}")
-            ax[i, j].set_xscale("log")
-            ax[i, j].set_xlabel("lambda")
-            ax[i, j].set_ylabel("Best val acc")
+            ax[row, column].legend(loc="lower left")
+            ax[row, column].set_title(f"{model}, {dataset}")
+            ax[row, column].set_xscale("log")
+            ax[row, column].set_xlabel("lambda")
+            ax[row, column].set_ylabel("Best val acc")
         plt.suptitle(f"Norm {norm}", fontsize=20)
         plt.tight_layout()
         fig.savefig(path.parent / (path.stem + f"_{norm}" + path.suffix))

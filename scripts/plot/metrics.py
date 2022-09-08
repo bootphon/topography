@@ -1,4 +1,4 @@
-"""Script to plot the metrics logged in TensorBoard for each experiment.
+"""Script to plot the metrics logged in TensorBoard for a given experiment.
 The topographic losses are grouped in the same figure.
 """
 import argparse
@@ -16,7 +16,7 @@ GROUP_TOGETHER = ("topo-loss",)
 
 @dataclasses.dataclass(frozen=True)
 class PlotMetricConfig:
-    experiments: Path  # Path to the directory containing all the experiments
+    logdir: Path  # Output directory.
     overwrite: bool = False  # Whether to overwrite exisiting files or not
     fig_kw: Dict = dataclasses.field(
         default_factory=lambda: {"figsize": (15, 10)}
@@ -40,8 +40,12 @@ def _keyfunc(name: str) -> str:
     str
         If the name of the metric does not have a part in `GROUP_TOGETHER`,
         the key is the name itself (this group will only have one element).
-        Else,
-        For example,
+        Else, the key is the beginning of the name until the group
+        is found.
+        For example, the key returned for "test/acc" is "test/acc"
+        while the one returned for "train/extras/topo-loss/features.0" is
+        "train/extras/topo-loss", which is also the one returned
+        for "train/extras/topo-loss/features.40".
     """
     for group in GROUP_TOGETHER:
         if group in name:
@@ -50,49 +54,46 @@ def _keyfunc(name: str) -> str:
 
 
 def main(config: PlotMetricConfig):
-    for path in config.experiments.rglob("tensorboard"):
-        parent = path.parent
-        print(parent)
-        output = parent.joinpath("plot")
-        output.mkdir(exist_ok=True)
+    logdir = config.logdir
+    plotdir = logdir / "plot"
+    plotdir.mkdir(exist_ok=True)
 
-        for idx, experiment_id in enumerate(path.glob("*")):
-            dataframe = tensorboard_to_dataframe(str(experiment_id))
-            all_metrics = dataframe.metric.unique()
-            for metric, group in groupby(all_metrics, _keyfunc):
-                name = output.joinpath(
-                    f"metrics_{metric.replace('/', '-')}-{idx}.pdf"
-                )
-                if not name.exists() or config.overwrite:
-                    to_save = False
-                    plt.figure(**config.fig_kw)
-                    for label in group:
-                        subdf = dataframe[dataframe.metric == label]
-                        if len(subdf.value) > 1:
-                            to_save = True
-                        plt.plot(
-                            subdf.step,
-                            subdf.value,
-                            label=label,
-                            **config.plot_kw,
-                        )
-                    plt.legend(**config.legend_kw)
-                    plt.xlabel("Step")
-                    plt.ylabel(metric)
-                    if to_save:
-                        plt.savefig(name)
-                        plt.savefig(name.with_suffix(".png"))
-                    plt.close()
+    for idx, experiment_id in enumerate((logdir / "tensorboard").glob("*")):
+        dataframe = tensorboard_to_dataframe(str(experiment_id))
+        all_metrics = dataframe.metric.unique()
+        for metric, group in groupby(all_metrics, _keyfunc):
+            name = plotdir.joinpath(
+                f"metrics_{metric.replace('/', '-')}-{idx}.pdf"
+            )
+            if not name.exists() or config.overwrite:
+                to_save = False
+                plt.figure(**config.fig_kw)
+                for label in group:
+                    subdf = dataframe[dataframe.metric == label]
+                    if len(subdf.value) > 1:
+                        to_save = True
+                    plt.plot(
+                        subdf.step,
+                        subdf.value,
+                        label=label,
+                        **config.plot_kw,
+                    )
+                plt.legend(**config.legend_kw)
+                plt.xlabel("Step")
+                plt.ylabel(metric)
+                if to_save:
+                    plt.savefig(name)
+                    plt.savefig(name.with_suffix(".png"))
+                plt.close()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-x",
-        "--experiments",
+        "--log",
         type=str,
         required=True,
-        help="Experiments directory",
+        help="Output directory",
     )
     parser.add_argument(
         "--overwrite",
@@ -101,7 +102,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     config = PlotMetricConfig(
-        experiments=Path(args.experiments).resolve(),
+        logdir=Path(args.log).resolve(),
         overwrite=args.overwrite,
         legend_kw={"fontsize": "x-small"},
     )
