@@ -7,7 +7,7 @@ import json
 import random
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -31,12 +31,11 @@ class CorrelationPlotConfig:
     subset: str  # Subset to consider
     batch_size: int  # Batch size
     model: str  # Base model
-    num_classes: int  # Number of classes in CIFAR
-    normalization: List  # CIFAR image normalization
     dimension: int  # Dimension of the positions.
     norm: str  # Which norm between positions to use.
     position_scheme: str  # Position scheme (hypercube, nested or hypersphere).
     overwrite: bool = False  # Whether to overwrite existing files.
+    normalization: Optional[List] = None  # CIFAR image normalization
 
     fig_kw: Dict = dataclasses.field(default_factory=dict)  # Figure kwargs
     scatter_kw: Dict = dataclasses.field(default_factory=dict)  # Plot kwargs
@@ -171,7 +170,7 @@ def main(config: CorrelationPlotConfig) -> None:
     )
 
     base_model = getattr(models, config.model)(
-        num_classes=config.num_classes, in_channels=in_channels
+        num_classes=num_classes, in_channels=in_channels
     )
     model = TopographicModel(
         base_model,
@@ -245,8 +244,7 @@ if __name__ == "__main__":
         dataset=config_json["dataset"],
         batch_size=config_json["batch_size"],
         model=config_json["model"],
-        num_classes=config_json["num_classes"],
-        normalization=config_json["normalization"],
+        normalization=config_json.get("normalization"),
         dimension=config_json["dimension"],
         norm=config_json["norm"],
         position_scheme=config_json["position_scheme"],
