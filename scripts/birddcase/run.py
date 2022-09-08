@@ -12,7 +12,7 @@ import torch.optim as optim
 from topography import MetricOutput, TopographicLoss, TopographicModel, models
 from topography.training import Writer, train
 from topography.utils import LinearWarmupCosineAnnealingLR
-from topography.utils.data import BirdDCASE, evaluate_with_crop
+from topography.utils.data import BirdDCASE, evaluate_avg_voting
 
 NUM_CLASSES, IN_CHANNELS = 2, 1
 
@@ -166,7 +166,7 @@ def main(config: BirdDCASEConfig) -> None:
     writer.log_config(dataclasses.asdict(config))
     for _ in range(config.epochs):
         train(model, train_loader, optimizer, criterion, device, writer)
-        evaluate_with_crop(
+        evaluate_avg_voting(
             model, val_set, device, writer, mode="val", duration=config.duration
         )
         scheduler.step()
@@ -177,7 +177,7 @@ def main(config: BirdDCASEConfig) -> None:
     state_dict = sorted((writer.root / "checkpoints").glob("*.model"))[-1]
     model.load_state_dict(torch.load(state_dict, map_location=device))
 
-    evaluate_with_crop(
+    evaluate_avg_voting(
         model, test_set, device, writer, mode="test", duration=config.duration
     )
     writer.close()
