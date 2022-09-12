@@ -1,24 +1,24 @@
-"""Script to train a model, topographic or not, on CIFAR."""
+"""Script to train a model, topographic or not, on SpeechCommands."""
 import argparse
 import dataclasses
 import random
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchvision
-from torch.utils.data.sampler import SubsetRandomSampler
-from torchvision import transforms
 
 from topography import MetricOutput, TopographicLoss, TopographicModel, models
 from topography.training import Writer, evaluate, train
 from topography.utils import LinearWarmupCosineAnnealingLR
+from topography.utils.data import SpeechCommands
+
+NUM_CLASSES, IN_CHANNELS = 35, 1
 
 
-@dataclasses.dataclass
-class CIFARConfig:
+@dataclasses.dataclass(frozen=True)
+class SpeechCommandsConfig:
     """Dataclass to store the whole configuration used."""
 
     log: str  # Output directory.
@@ -26,33 +26,22 @@ class CIFARConfig:
     seed: int  # Random seed.
 
     model: str  # Model to use.
-    num_classes: int  # Number of CIFAR classes, either 10 or 100.
     topographic: bool  # Whether to train a topographic model or not.
     lambd: Optional[float] = None  # Weight of the topographic loss.
     dimension: Optional[int] = None  # Dimension of the positions.
     norm: Optional[str] = None  # Which norm between positions to use.
     position_scheme: Optional[str] = None  # How to assign positions.
 
-    dataseed: int = 0  # Seed for splitting the data in CIFAR.
-    epochs: int = 100  # Number of training epochs.
-    val_proportion: float = 0.1  # Proportion for the validation set
+    epochs: int = 12  # Number of training epochs.
     batch_size: int = 256  # Batch size.
     lr: float = 0.01  # Base learning rate.
     weight_decay: float = 0.01  # Weight decay.
     momentum: float = 0.9  # SGD momentum.
-    padding: int = 4  # Padding in random crop.
-    normalization: List = dataclasses.field(
-        default_factory=lambda: [
-            (0.4914, 0.4822, 0.4465),
-            (0.2023, 0.1994, 0.2010),
-        ]
-    )  # CIFAR image normalization.
-    horizontal_flip: float = 0.5  # Probability of horizontal flip in training.
     optimizer: str = "sgd"  # Optimizer.
     scheduler: str = "LinearWarmupCosineAnnealingLR"  # LR scheduler.
     warmup_epochs_prop: float = 0.3  # Proportion of warmup epochs.
 
-    dataset: Optional[str] = None  # Dataset used
+    dataset: str = "speechcommands"  # Dataset used
 
     def __post_init__(self):
         """Post initialization checks.
@@ -60,17 +49,10 @@ class CIFARConfig:
         Raises
         ------
         ValueError
-            If the specified number of classes is not 10 or 100,
-            the base model is not implemented,
-            or if the model is topographic and a topographic parameter
-            has not been specified.
+            If the base model is not implemented,
+            or if the model is topographic and a topographic
+            parameter has not been specified.
         """
-        if self.num_classes not in (10, 100):
-            raise ValueError(
-                f"Invalid number of classes '{self.num_classes}'"
-                "in CIFAR. Must be either 10 or 100."
-            )
-        self.dataset = f"cifar{self.num_classes}"
         if self.topographic and (
             self.lambd is None or self.norm is None or self.dimension is None
         ):
@@ -86,64 +68,33 @@ class CIFARConfig:
             )
 
 
-def main(config: CIFARConfig) -> None:
+def main(config: SpeechCommandsConfig) -> None:
     """Train a model on CIFAR with the given configuration.
 
     Parameters
     ----------
-    config : CIFARConfig
+    config : SpeechCommandsConfig
         Pipeline configuration.
     """
     writer = Writer(config.log)
 
-    train_transform = transforms.Compose(
-        [
-            transforms.RandomCrop(32, padding=config.padding),
-            transforms.RandomHorizontalFlip(config.horizontal_flip),
-            transforms.ToTensor(),
-            transforms.Normalize(*config.normalization),
-        ]
-    )
-    test_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(*config.normalization),
-        ]
-    )
-
-    dataset = (
-        torchvision.datasets.CIFAR10
-        if config.num_classes == 10
-        else torchvision.datasets.CIFAR100
-    )
-    train_set = dataset(root=config.data, train=True, transform=train_transform)
-    val_set = dataset(root=config.data, train=True, transform=test_transform)
-
-    num_train = len(train_set)
-    generator = torch.Generator().manual_seed(config.dataseed)
-    indices = torch.randperm(num_train, generator=generator)
-    split = int(np.floor(config.val_proportion * num_train))
-    train_idx, val_idx = indices[split:], indices[:split]
-    train_sampler = SubsetRandomSampler(train_idx)
-    val_sampler = SubsetRandomSampler(val_idx)
-
+    train_set = SpeechCommands(config.data, subset="training")
     train_loader = torch.utils.data.DataLoader(
         train_set,
         batch_size=config.batch_size,
-        sampler=train_sampler,
+        shuffle=True,
         num_workers=2,
         pin_memory=True,
     )
-
+    val_set = SpeechCommands(config.data, subset="validation")
     val_loader = torch.utils.data.DataLoader(
         val_set,
         batch_size=config.batch_size,
-        sampler=val_sampler,
+        shuffle=False,
         num_workers=2,
         pin_memory=True,
     )
-
-    test_set = dataset(root=config.data, train=False, transform=test_transform)
+    test_set = SpeechCommands(config.data, subset="testing")
     test_loader = torch.utils.data.DataLoader(
         test_set,
         batch_size=config.batch_size,
@@ -153,7 +104,9 @@ def main(config: CIFARConfig) -> None:
     )
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    base_model = getattr(models, config.model)(num_classes=config.num_classes)
+    base_model = getattr(models, config.model)(
+        num_classes=NUM_CLASSES, in_channels=IN_CHANNELS
+    )
     model = (
         TopographicModel(
             base_model,
@@ -217,8 +170,8 @@ def main(config: CIFARConfig) -> None:
 
 
 if __name__ == "__main__":
-    # Some configuration parameters in CIFARConfig are not expected to be
-    # changed. They are inside the CIFARConfig for code clarity
+    # Some configuration parameters in SpeechCommandsConfig are not expected
+    # to be changed. They are inside the SpeechCommandsConfig for code clarity
     # and to log them with the other hyperparameters.
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -235,12 +188,6 @@ if __name__ == "__main__":
         "--topographic",
         action="store_true",
         help="If specified, use a topographic model.",
-    )
-    parser.add_argument(
-        "--num_classes",
-        default=10,
-        type=int,
-        help="Number of classes in CIFAR. Either 10 or 100.",
     )
     parser.add_argument(
         "--lambd", type=float, help="Weight of the topographic loss."
@@ -268,5 +215,5 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    config = CIFARConfig(**vars(args))
+    config = SpeechCommandsConfig(**vars(args))
     main(config)

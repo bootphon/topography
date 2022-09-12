@@ -1,9 +1,9 @@
-"""Simple script to create jobs to run on CIFAR."""
+"""Simple script to create jobs to run on BirdDCASE."""
 import argparse
 from itertools import product
 from pathlib import Path
 
-OUTPUT = "cifar"
+OUTPUT = "birddcase"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -20,33 +20,31 @@ if __name__ == "__main__":
     datadir = workdir / "data"
 
     models = ["resnet18", "vgg16_bn", "densenet121"]
-    cifar_classes = [10, 100]
     dimensions = [1, 2, 3]
     norms = ["euclidean", "l1"]
     position_schemes = ["hypercube", "nested", "hypersphere"]
     lambdas = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 0.1, 0.5, 1, 5]
 
     with open(jobs, "w", encoding="utf-8") as file:
-        for model, num_classes in product(models, cifar_classes):
-            path = f"cifar{num_classes}/{model}/base"
+        for model in models:
+            path = f"birddcase/{model}/base"
             file.write(
                 f"python {script} --log {logdir / path}"
-                f" --data {datadir} --seed {args.seed}"
-                f" --model {model} --num_classes {num_classes}\n"
+                f" --data {datadir} --seed {args.seed} --model {model}\n"
             )
-        for model, num_classes, dim, norm, lambd, position_scheme in product(
-            models, cifar_classes, dimensions, norms, lambdas, position_schemes
+        for model, dim, norm, lambd, position_scheme in product(
+            models, dimensions, norms, lambdas, position_schemes
         ):
             if position_scheme == "hypersphere" and dim == 1:
                 continue  # No sphere in dimension 1
             path = (
-                f"cifar{num_classes}/{model}/{position_scheme}/"
+                f"birddcase/{model}/{position_scheme}/"
                 + f"dimension_{dim}/lambda_{lambd}/norm_{norm}"
             )
             file.write(
                 f"python {script} --log {logdir / path}"
                 f" --data {datadir} --seed {args.seed} --model {model}"
-                f" --num_classes {num_classes} --topographic --norm {norm}"
+                f" --topographic --norm {norm}"
                 f" --position_scheme {position_scheme}"
                 f" --lambd {lambd} --dimension {dim}\n"
             )

@@ -87,7 +87,7 @@ class RandomAudioFeaturesCrop(RandomCrop):
         self.size = transform(sample).shape
 
 
-def evaluate_with_crop(
+def evaluate_avg_voting(
     model: nn.Module,
     dataset: Dataset,
     device: torch.device,
