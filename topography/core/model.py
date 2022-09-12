@@ -42,8 +42,8 @@ class TopographicModel(nn.Module):
             Which norm between positions to use. Must be "euclidean" or "l1",
             by default "euclidean".
         position_scheme : str, optional
-            How to assign positions. Must be "hypercube", by default
-            "hypercube".
+            How to assign positions. Must be "hypercube", "nested" or
+            "hypersphere", by default "hypercube".
         topographic_layer_names : Tuple[str], optional
             Tuple of names of the Conv2d layers to which add topography.
             If None, all Conv2d layers will be used. By default None.
