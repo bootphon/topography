@@ -13,7 +13,6 @@ from torch import nn
 from torch.nn.utils import prune
 from torch.nn.utils.prune import LnStructured, RandomStructured
 from torchvision import datasets, transforms
-from tqdm import tqdm
 
 from topography import TopographicModel, models
 from topography.training import Writer, evaluate
@@ -115,7 +114,7 @@ def main(
     """
     prunedir = Path(config.logdir) / "pruning_all"
     prunedir.mkdir(exist_ok=True)
-    writer = Writer(prunedir)
+    writer = Writer(prunedir, backup_setup=False)
     writer.log_config(dataclasses.asdict(config))
 
     # Model
@@ -261,7 +260,7 @@ if __name__ == "__main__":
         topographic_layer_names=models.topographic_layer_names(model_name),
     )
 
-    for proportion in tqdm(np.linspace(0, 1, 101)):
+    for proportion in np.linspace(0, 1, 101):
         job(logdir, proportion, "weight", None, 1)
         job(logdir, proportion, "weight", None, 2)
         job(logdir, proportion, "random", SEED, None)

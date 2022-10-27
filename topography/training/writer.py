@@ -62,7 +62,9 @@ def _exec_command(cmd: str, path: Optional[Path] = None) -> None:
 class Writer:
     """Writer handling logging, TensorBoard and checkpoints"""
 
-    def __init__(self, log_dir: str, fmt: str = ":.3f") -> None:
+    def __init__(
+        self, log_dir: str, fmt: str = ":.3f", backup_setup: bool = True
+    ) -> None:
         """Create the writer.
 
         Parameters
@@ -81,6 +83,9 @@ class Writer:
             |--test.log
         fmt : str, optional
             String formatter used in logging, by default ':.3f'.
+        backup_setup: bool, optional
+            Whether to backup the environment and git directory,
+            for debugging and reproducibility. By default True.
         """
         self._start_time = datetime.now()
         self.root = (
@@ -110,9 +115,10 @@ class Writer:
         self._to_remove = "extras"
 
         self._summary_logger.info("Start on %s.", self._start_time)
-        for cmd, path in _COMMANDS_STDOUT:
-            _exec_command(cmd, self._environment.joinpath(path))
-        _copy_git_directory(self._environment.joinpath("git_directory"))
+        if backup_setup:
+            for cmd, path in _COMMANDS_STDOUT:
+                _exec_command(cmd, self._environment.joinpath(path))
+            _copy_git_directory(self._environment.joinpath("git_directory"))
 
     def __getitem__(self, metric: str) -> AverageMeter:
         """Return the meter associated for the given `metric`

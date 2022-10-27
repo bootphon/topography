@@ -28,7 +28,7 @@ def test_vision(model_name):
     scheduler = LinearWarmupCosineAnnealingLR(
         optimizer, warmup_epochs=0.3 * epochs, max_epochs=epochs
     )
-    writer = Writer(temp_dir.name)
+    writer = Writer(temp_dir.name, backup_setup=False)
     writer.log_config(dict(lr=lr, epochs=epochs))
     data = torch.randn([num_samples] + shape)
     targets = torch.randint(cifar_classes, [num_samples])
@@ -86,7 +86,7 @@ def test_vision_topographic(model_name):
     scheduler = LinearWarmupCosineAnnealingLR(
         optimizer, warmup_epochs=0.3 * epochs, max_epochs=epochs
     )
-    writer = Writer(temp_dir.name)
+    writer = Writer(temp_dir.name, backup_setup=False)
     writer.log_config(dict(lr=lr, epochs=epochs))
     data = torch.randn([num_samples] + shape)
     targets = torch.randint(cifar_classes, [num_samples])
