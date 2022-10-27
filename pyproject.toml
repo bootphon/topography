@@ -6,6 +6,11 @@ build-backend = "setuptools.build_meta"
 line-length = 80
 exclude = "topography/utils/externals"
 
+[tool.isort]
+line-length = 80
+profile = "black"
+know_first_party = ["topography"]
+
 [tool.pylint.message_control]
 disable = "R0913, R0902"
 
