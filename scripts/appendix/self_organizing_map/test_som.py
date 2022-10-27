@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 from sklearn.datasets import load_iris
-from topography.som import SOM
+
+from som import SOM
 
 iris = load_iris()
 iris_data = iris.data[:, :2]
