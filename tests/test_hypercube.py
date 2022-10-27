@@ -1,6 +1,7 @@
 """Test of the hypercube function that is used to to assign positions
 to the channels.
 """
+import math
 from typing import Dict, Tuple
 
 import pytest
@@ -87,3 +88,19 @@ def test_hypercube(dimension):
     other_num_points = num_axis**dimension - num_axis + 1
     other_coords = hypercube(other_num_points, dimension)
     assert torch.equal(coords[:other_num_points], other_coords)
+
+
+@pytest.mark.parametrize("num_points", [2, 11, 20, 64, 256, 512, 1000, 111111])
+def test_explicit_expression(num_points):
+    dimension = 2
+    num_axis = int(math.ceil(num_points ** (1 / dimension)))
+
+    ref = hypercube(num_points, dimension)
+    ref_integer = hypercube(num_points, dimension, integer_positions=True)
+    assert torch.allclose(ref, ref_integer / (num_axis - 1))
+
+    explicit = torch.zeros((num_points, dimension))
+    for idx in range(num_points):
+        explicit[idx][0] = idx % num_axis
+        explicit[idx][1] = idx // num_axis
+    assert torch.allclose(ref, explicit / (num_axis - 1))
