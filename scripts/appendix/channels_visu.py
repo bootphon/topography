@@ -1,5 +1,6 @@
 """Script to visualize channels by finding the highest activating images,
 using the Lucent library.
+Install Lucent with: `pip install torch-lucent`.
 """
 import argparse
 import json
