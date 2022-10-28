@@ -1,7 +1,6 @@
 """Test of the logging utility."""
 import logging
 from pathlib import Path
-from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 import pandas as pd
 import pytest
@@ -11,9 +10,8 @@ from topography.utils import get_logger, tensorboard_to_dataframe
 
 
 @pytest.mark.parametrize("level", ["debug", "info", "warning", "error"])
-def test_logger(capsys, level):
-    temp_file = NamedTemporaryFile()
-    log = get_logger("test", temp_file.name, level=level)
+def test_logger(tmp_path, capsys, level):
+    log = get_logger("test", tmp_path / f"{level}.log", level=level)
     log.debug("DEBUG")
     log.info("INFO")
     log.warning("WARNING")
@@ -43,16 +41,14 @@ def test_logger(capsys, level):
         assert "DEBUG" in captured.err
 
 
-def test_logger_bad_level():
-    temp_file = NamedTemporaryFile()
+def test_logger_bad_level(tmp_path):
     with pytest.raises(ValueError) as err:
-        get_logger("test", temp_file.name, level="bad")
+        get_logger("test", tmp_path / "bad.log", level="bad")
     assert "Invalid logging level" in str(err.value)
 
 
-def test_tensorboard_to_dataframe():
-    temp_dir = TemporaryDirectory()
-    writer = Writer(temp_dir.name)
+def test_tensorboard_to_dataframe(tmp_path):
+    writer = Writer(tmp_path)
     writer.next_epoch("test")
     writer["loss"].update(1, 3)
     writer["loss"].update(0, 2)
@@ -61,7 +57,7 @@ def test_tensorboard_to_dataframe():
     summary = writer.summary()
     assert summary == "test, epoch 1, loss 0.600, acc 0.500"
 
-    path = list(Path(temp_dir.name).rglob("*.tfevents*"))
+    path = list(Path(tmp_path).rglob("*.tfevents*"))
     assert len(path) == 1
     dataframe = tensorboard_to_dataframe(path[0])
     assert len(dataframe) == 2
