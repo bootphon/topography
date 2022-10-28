@@ -1,7 +1,7 @@
 # Introducing topography in convolutional neural networks
 
-![tests](https://github.com/mxmpl/topography/actions/workflows/tests.yml/badge.svg?branch=main)
-![linting](https://github.com/mxmpl/topography/actions/workflows/linting.yml/badge.svg?branch=main)
+![tests](https://github.com/bootphon/topography/actions/workflows/tests.yml/badge.svg?branch=main)
+![linting](https://github.com/bootphon/topography/actions/workflows/linting.yml/badge.svg?branch=main)
 ![python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10-blue)
 ![os](https://img.shields.io/badge/OS-Linux%20%7C%20MacOS%20%7C%20Windows-blue)
 
