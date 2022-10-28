@@ -101,7 +101,7 @@ def test_vgg16_bn(tmp_path):
     scheduler = LinearWarmupCosineAnnealingLR(
         optimizer, warmup_epochs=1, max_epochs=epochs
     )
-    writer = Writer(tmp_path)
+    writer = Writer(tmp_path / "writer", backup_setup=False)
     writer.log_config(dict(lr=lr, epochs=epochs))
     dataloader = DataLoader(dataset, batch_size=num_samples, generator=g)
     criterion = nn.CrossEntropyLoss()
