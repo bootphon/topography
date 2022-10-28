@@ -1,9 +1,9 @@
 name: Linting
 on:
   push:
-    branches: [wip]
+    branches: [main]
   pull_request:
-    branches: [wip]
+    branches: [main]
 
 jobs:
   build:
