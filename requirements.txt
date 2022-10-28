@@ -1,12 +1,10 @@
-pytorch
+torch>=1.11
 torchvision
 torchaudio
+tensorboard
+scikit-learn
 numpy
-scipy
 matplotlib
 pandas
-ipykernel
 tqdm
-autopep8
-scikit-learn
 lucent

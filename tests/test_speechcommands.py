@@ -1,6 +1,5 @@
 """Test of the Speech VGG on Speech Commands."""
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import pytest
 import torch
@@ -54,21 +53,19 @@ def test_default_transform():
     assert ampl_to_db.stype == "power"
 
 
-def test_bad_subset():
-    temp_dir = TemporaryDirectory()
+def test_bad_subset(tmp_path):
     with pytest.raises(ValueError) as error:
-        SpeechCommands(temp_dir.name, subset="bad")
+        SpeechCommands(tmp_path, subset="bad")
     assert str(error.value).startswith("Invalid subset")
 
 
-def test_vgg16_bn():
+def test_vgg16_bn(tmp_path):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
-    temp_dir = TemporaryDirectory()
     g = torch.Generator()
     g.manual_seed(0)
 
-    root = Path(f"{temp_dir.name}/{FOLDER_IN_ARCHIVE}/processed").resolve()
+    root = Path(f"{tmp_path}/{FOLDER_IN_ARCHIVE}/processed").resolve()
     root.mkdir(parents=True)
     root.joinpath("training").mkdir()
 
@@ -94,7 +91,7 @@ def test_vgg16_bn():
     with open(root.joinpath("training.csv"), "w") as file:
         file.write("\n".join(metadata))
 
-    dataset = SpeechCommands(root=temp_dir.name, subset="training", build=False)
+    dataset = SpeechCommands(root=tmp_path, subset="training", build=False)
     with pytest.raises(IndexError):
         dataset[num_samples + 1]
 
@@ -104,7 +101,7 @@ def test_vgg16_bn():
     scheduler = LinearWarmupCosineAnnealingLR(
         optimizer, warmup_epochs=1, max_epochs=epochs
     )
-    writer = Writer(temp_dir.name)
+    writer = Writer(tmp_path / "writer", backup_setup=False)
     writer.log_config(dict(lr=lr, epochs=epochs))
     dataloader = DataLoader(dataset, batch_size=num_samples, generator=g)
     criterion = nn.CrossEntropyLoss()

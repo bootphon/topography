@@ -1,6 +1,4 @@
 """Test of the ResNet. Checks if it can overfit a single batch."""
-from tempfile import TemporaryDirectory
-
 import pytest
 import torch
 from torch import nn
@@ -14,10 +12,9 @@ from topography.utils import LinearWarmupCosineAnnealingLR
 
 
 @pytest.mark.parametrize("model_name", ["resnet18", "vgg16_bn", "densenet121"])
-def test_vision(model_name):
+def test_vision(tmp_path, model_name):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
-    temp_dir = TemporaryDirectory()
     g = torch.Generator()
     g.manual_seed(0)
     lr, epochs = 0.01, 30
@@ -28,7 +25,7 @@ def test_vision(model_name):
     scheduler = LinearWarmupCosineAnnealingLR(
         optimizer, warmup_epochs=0.3 * epochs, max_epochs=epochs
     )
-    writer = Writer(temp_dir.name, backup_setup=False)
+    writer = Writer(tmp_path / model_name, backup_setup=False)
     writer.log_config(dict(lr=lr, epochs=epochs))
     data = torch.randn([num_samples] + shape)
     targets = torch.randint(cifar_classes, [num_samples])
@@ -69,10 +66,9 @@ def test_vision(model_name):
 
 
 @pytest.mark.parametrize("model_name", ["resnet18", "vgg16_bn", "densenet121"])
-def test_vision_topographic(model_name):
+def test_vision_topographic(tmp_path, model_name):
     torch.manual_seed(0)
     torch.use_deterministic_algorithms(True)
-    temp_dir = TemporaryDirectory()
     g = torch.Generator()
     g.manual_seed(0)
     lr, epochs = 0.01, 30
@@ -86,7 +82,7 @@ def test_vision_topographic(model_name):
     scheduler = LinearWarmupCosineAnnealingLR(
         optimizer, warmup_epochs=0.3 * epochs, max_epochs=epochs
     )
-    writer = Writer(temp_dir.name, backup_setup=False)
+    writer = Writer(tmp_path / model_name, backup_setup=False)
     writer.log_config(dict(lr=lr, epochs=epochs))
     data = torch.randn([num_samples] + shape)
     targets = torch.randint(cifar_classes, [num_samples])
