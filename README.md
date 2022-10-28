@@ -1,18 +1,26 @@
-# Topography
+# Introducing topography in convolutional neural networks
 
-![Build, lint and test](https://github.com/mxmpl/topography/actions/workflows/ubuntu.yml/badge.svg?branch=main)
+![tests](https://github.com/mxmpl/topography/actions/workflows/test.yml/badge.svg?branch=wip)
+![linting](https://github.com/mxmpl/topography/actions/workflows/lint.yml/badge.svg?branch=wip)
+![python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10-blue)
+![os](https://img.shields.io/badge/OS-Linux%20%7C%20MacOS%20%7C%20Windows-blue)
+
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-
-Learning the topographic organization of computations in deep learning models
+[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/PyCQA/pylint)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 ## Installation
 
-### Building from source
-
-To install this package, it is recommended to create a dedicated virtual
-environment with conda.
+```bash
+conda create -n topography pip=22 python=3.10
+conda activate topography
+pip install .
+```
 
 ```bash
-conda env create -f environment.yml
-pip install -e .
+conda create -n topography-dev pip=22 python=3.10
+conda activate topography-dev
+pip install -e .[dev, testing]
 ```
+
+`pip` version at least 21.3 for the editable install.
