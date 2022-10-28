@@ -1,5 +1,6 @@
 """Test of the logging utility."""
 import logging
+import platform
 from pathlib import Path
 
 import pandas as pd
@@ -48,7 +49,7 @@ def test_logger_bad_level(tmp_path):
 
 
 def test_tensorboard_to_dataframe(tmp_path):
-    writer = Writer(tmp_path / "writer")
+    writer = Writer(tmp_path, backup_setup=platform.system() != "Windows")
     writer.next_epoch("test")
     writer["loss"].update(1, 3)
     writer["loss"].update(0, 2)
