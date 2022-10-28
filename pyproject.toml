@@ -2,6 +2,49 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "topography"
+version = "1.0.0"
+description = "Introducing topography in convolutional neural networks."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [{name = "Maxime Poli"}]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dynamic = ["dependencies"]
+
+[project.urls]
+homepage = "https://bootphon.github.io/topography"
+repository = "https://github.com/bootphon/topography"
+
+[project.optional-dependencies]
+testing = [
+    "pytest",
+    "pytest-cov"
+]
+dev = [
+    "ipykernel",
+    "black",
+    "isort",
+    "flake8",
+    "pylint",
+]
+
+[tool.setuptools]
+packages = ["topography"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = "requirements.txt"}
+
 [tool.black]
 line-length = 80
 exclude = "topography/utils/externals"
