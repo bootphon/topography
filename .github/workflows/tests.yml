@@ -1,7 +1,7 @@
 name: Tests
 on:
   push:
-    branches: [wip]
+    branches: [main]
   pull_request:
     branches: [main]
 
